@@ -19,6 +19,8 @@ dist-tsc/
 build/
 .next/
 out/
+playwright-report/
+test-results/
 
 # Environment configs (Never commit!)
 .env

@@ -39,18 +39,10 @@
 - `admin@example.com` / `qwerdf66` / `admin`
 - `agent@example.com` / `qwerdf66` / `agent`
 - `server/.env` 与 `server/.env.example` 中的默认管理员密码已同步为 `qwerdf66`。
-- Playwright 使用独立环境文件 `server/.env.playwright`，默认测试库为 `helpdesk_playwright`，默认服务端端口为 `4100`，前端端口为 `4173`。
-- `server/.env.playwright` 与 `server/.env.playwright.local` 已被 `.gitignore` 忽略，不应提交。
 
 ## 6. 常用命令
 - 前端构建：在 `client` 下运行 `npm run build`。
 - 服务端生成 Better Auth schema：在 `server` 下运行 `npm run auth:generate`。
 - Prisma Client 生成：在 `server` 下运行 `npm run prisma:generate`。
 - Prisma Seed：在 `server` 下运行 `npm run prisma:seed`。
-- Playwright 配置文件在根目录：`playwright.config.ts`。
-- Playwright 会在 `globalSetup` 中先执行测试库初始化，再启动前后端。
-- Playwright 测试库初始化脚本：`npm run playwright:db:setup`，内部执行 `prisma db push + prisma db seed`。
-- 单独执行 Playwright 测试库 schema 同步：`npm run playwright:db:push`。
-- 单独执行 Playwright 测试库种子：`npm run playwright:db:seed`。
-- Playwright 安装浏览器：`npm run playwright:install`。
-- Playwright 运行命令：`npm run playwright:test` / `npm run playwright:test:ui`。
+- 当前会话中，如需编写或更新 Playwright e2e 测试，优先复用最近创建的 Playwright 子代理 `Beauvoir`（agent id: `019d6d64-e30f-7de2-ae1d-d0a51e4c1f2e`）；若该子代理不可用，再参考 `.agents/skills/e2e-test-writer/SKILL.md`。
