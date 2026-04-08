@@ -8,6 +8,7 @@
 - 后端：Express + TypeScript + Prisma，开发端口 `4000`。
 - 数据库：PostgreSQL。
 - 前端路径别名：`client` 内已配置 `@/* -> src/*`。
+- 前端数据请求默认约定：优先使用 `axios` 作为 HTTP 客户端，优先使用 `@tanstack/react-query` 管理服务端状态；除非有明确理由，否则不要为常规数据获取继续新增裸 `fetch` 或手写 `useEffect + useState` 请求逻辑。
 
 ## 2. 认证与权限
 - 认证方案使用 Better Auth。

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { createApiUrl } from "../lib/api";
+import { apiClient } from "../lib/api-client";
 
 type UserListItem = {
   id: string;
@@ -41,52 +41,19 @@ function formatDate(value: string) {
 }
 
 export function UsersPage() {
-  const [users, setUsers] = useState<UserListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const response = await apiClient.get<UsersResponse>("/api/users");
+      return response.data;
+    },
+  });
 
-  useEffect(() => {
-    let isMounted = true;
+  if (isError) {
+    console.error("用户列表加载失败:", error);
+  }
 
-    fetch(createApiUrl("/api/users"), {
-      credentials: "include",
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Users request failed with ${response.status}`);
-        }
-
-        return (await response.json()) as UsersResponse;
-      })
-      .then((data) => {
-        if (!isMounted) {
-          return;
-        }
-
-        setUsers(data.users);
-        setErrorMessage("");
-      })
-      .catch((error: unknown) => {
-        console.error("用户列表加载失败:", error);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setErrorMessage("用户列表加载失败，请稍后再试。");
-      })
-      .finally(() => {
-        if (!isMounted) {
-          return;
-        }
-
-        setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const users = data?.users ?? [];
 
   return (
     <section className="grid gap-6">
@@ -111,12 +78,14 @@ export function UsersPage() {
           </div>
         </CardContent>
 
-        {isLoading ? (
+        {isPending ? (
           <CardContent className="pb-6 pt-2 text-sm text-muted-foreground">
             正在加载用户列表...
           </CardContent>
-        ) : errorMessage ? (
-          <CardContent className="pb-6 pt-2 text-sm text-destructive">{errorMessage}</CardContent>
+        ) : isError ? (
+          <CardContent className="pb-6 pt-2 text-sm text-destructive">
+            用户列表加载失败，请稍后再试。
+          </CardContent>
         ) : users.length === 0 ? (
           <CardContent className="pb-6 pt-2 text-sm text-muted-foreground">
             暂无用户数据。
