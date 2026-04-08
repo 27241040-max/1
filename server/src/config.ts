@@ -1,10 +1,3 @@
-const DEFAULT_CLIENT_ORIGINS = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:4173",
-  "http://127.0.0.1:4173",
-];
-
 const LOCALHOST_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 function normalizeOrigins(rawOrigins: string | undefined): string[] {
@@ -19,7 +12,7 @@ function normalizeOrigins(rawOrigins: string | undefined): string[] {
 }
 
 export const trustedOrigins = Array.from(
-  new Set([...DEFAULT_CLIENT_ORIGINS, ...normalizeOrigins(process.env.CLIENT_ORIGIN)]),
+  new Set(normalizeOrigins(process.env.CLIENT_ORIGIN)),
 );
 
 export function isAllowedOrigin(origin: string | undefined): boolean {
