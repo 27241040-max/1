@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router";
 
-import "./App.css";
 import { ProtectionRount } from "./components/ProtectionRount";
 import { Homepage } from "./pages/Homepage";
 import { LoginPages } from "./pages/LoginPages";

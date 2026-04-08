@@ -8,11 +8,21 @@ export function ProtectionRount() {
 
   if (isPending) {
     return (
-      <main className="shell shell--centered">
-        <div className="panel panel--loading">
-          <p className="eyebrow">Authenticating</p>
-          <h1>正在验证登录状态</h1>
-          <p className="muted">请稍候，系统正在同步你的会话信息。</p>
+      <main className="relative min-h-screen overflow-hidden bg-[#f4efe7] text-slate-700">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(53,135,102,0.18),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(208,111,64,0.12),transparent_28%)]"
+        />
+        <div className="relative grid min-h-screen place-items-center p-4 md:p-8">
+          <div className="w-full max-w-[440px] rounded-[28px] border border-[rgba(30,62,46,0.12)] bg-[rgba(255,253,249,0.92)] p-8 text-left shadow-[0_16px_35px_rgba(20,40,33,0.1)] backdrop-blur-xl">
+            <p className="m-0 text-xs uppercase tracking-[0.16em] text-slate-500">
+              Authenticating
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-900">
+              正在验证登录状态
+            </h1>
+            <p className="mt-3 text-slate-500">请稍候，系统正在同步你的会话信息。</p>
+          </div>
         </div>
       </main>
     );
@@ -20,11 +30,21 @@ export function ProtectionRount() {
 
   if (error) {
     return (
-      <main className="shell shell--centered">
-        <div className="panel panel--error">
-          <p className="eyebrow">Session Error</p>
-          <h1>会话读取失败</h1>
-          <p className="muted">{error.message}</p>
+      <main className="relative min-h-screen overflow-hidden bg-[#f4efe7] text-slate-700">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(53,135,102,0.18),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(208,111,64,0.12),transparent_28%)]"
+        />
+        <div className="relative grid min-h-screen place-items-center p-4 md:p-8">
+          <div className="w-full max-w-[440px] rounded-[28px] border border-[rgba(30,62,46,0.12)] bg-[rgba(255,253,249,0.92)] p-8 text-left shadow-[0_16px_35px_rgba(20,40,33,0.1)] backdrop-blur-xl">
+            <p className="m-0 text-xs uppercase tracking-[0.16em] text-slate-500">
+              Session Error
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-900">
+              会话读取失败
+            </h1>
+            <p className="mt-3 text-slate-500">{error.message}</p>
+          </div>
         </div>
       </main>
     );
