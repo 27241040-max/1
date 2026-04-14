@@ -1,5 +1,5 @@
-import { TicketCategory, TicketStatus } from "core/email";
-import { screen, waitFor } from "@testing-library/react";
+import { TicketCategory, TicketStatus, type TicketListItem } from "core/email";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { apiClient } from "../lib/api-client";
@@ -13,6 +13,165 @@ vi.mock("../lib/api-client", () => ({
 }));
 
 const mockedApiClient = vi.mocked(apiClient);
+
+const ticketsBySortKey: Record<string, TicketListItem[]> = {
+  "category:asc": [
+    {
+      id: 1,
+      subject: "Billing issue",
+      status: TicketStatus.open,
+      category: TicketCategory.general,
+      createdAt: "2026-04-14T13:00:00.000Z",
+      customer: {
+        id: 1,
+        name: "Customer One",
+        email: "customer.one@example.com",
+      },
+    },
+    {
+      id: 2,
+      subject: "Tech support",
+      status: TicketStatus.resolved,
+      category: TicketCategory.technical,
+      createdAt: "2026-04-14T14:00:00.000Z",
+      customer: {
+        id: 2,
+        name: "Customer Two",
+        email: "customer.two@example.com",
+      },
+    },
+  ],
+  "createdAt:asc": [
+    {
+      id: 1,
+      subject: "Older ticket",
+      status: TicketStatus.resolved,
+      category: TicketCategory.technical,
+      createdAt: "2026-04-14T13:00:00.000Z",
+      customer: {
+        id: 1,
+        name: "Customer One",
+        email: "customer.one@example.com",
+      },
+    },
+    {
+      id: 2,
+      subject: "Newest ticket",
+      status: TicketStatus.open,
+      category: null,
+      createdAt: "2026-04-14T14:00:00.000Z",
+      customer: {
+        id: 2,
+        name: "Customer Two",
+        email: "customer.two@example.com",
+      },
+    },
+  ],
+  "createdAt:desc": [
+    {
+      id: 2,
+      subject: "Newest ticket",
+      status: TicketStatus.open,
+      category: null,
+      createdAt: "2026-04-14T14:00:00.000Z",
+      customer: {
+        id: 2,
+        name: "Customer Two",
+        email: "customer.two@example.com",
+      },
+    },
+    {
+      id: 1,
+      subject: "Older ticket",
+      status: TicketStatus.resolved,
+      category: TicketCategory.technical,
+      createdAt: "2026-04-14T13:00:00.000Z",
+      customer: {
+        id: 1,
+        name: "Customer One",
+        email: "customer.one@example.com",
+      },
+    },
+  ],
+  "customer:asc": [
+    {
+      id: 3,
+      subject: "A question",
+      status: TicketStatus.closed,
+      category: null,
+      createdAt: "2026-04-14T12:00:00.000Z",
+      customer: {
+        id: 3,
+        name: "Alice",
+        email: "alice@example.com",
+      },
+    },
+    {
+      id: 4,
+      subject: "B question",
+      status: TicketStatus.open,
+      category: TicketCategory.general,
+      createdAt: "2026-04-14T11:00:00.000Z",
+      customer: {
+        id: 4,
+        name: "Bob",
+        email: "bob@example.com",
+      },
+    },
+  ],
+  "status:asc": [
+    {
+      id: 5,
+      subject: "Closed first",
+      status: TicketStatus.closed,
+      category: null,
+      createdAt: "2026-04-14T10:00:00.000Z",
+      customer: {
+        id: 5,
+        name: "Casey",
+        email: "casey@example.com",
+      },
+    },
+    {
+      id: 6,
+      subject: "Open second",
+      status: TicketStatus.open,
+      category: TicketCategory.general,
+      createdAt: "2026-04-14T09:00:00.000Z",
+      customer: {
+        id: 6,
+        name: "Devon",
+        email: "devon@example.com",
+      },
+    },
+  ],
+  "subject:asc": [
+    {
+      id: 7,
+      subject: "Alpha ticket",
+      status: TicketStatus.open,
+      category: null,
+      createdAt: "2026-04-14T08:00:00.000Z",
+      customer: {
+        id: 7,
+        name: "Zed",
+        email: "zed@example.com",
+      },
+    },
+    {
+      id: 8,
+      subject: "Beta ticket",
+      status: TicketStatus.resolved,
+      category: TicketCategory.technical,
+      createdAt: "2026-04-14T07:00:00.000Z",
+      customer: {
+        id: 8,
+        name: "Yan",
+        email: "yan@example.com",
+      },
+    },
+  ],
+};
 
 describe("TicketsPage", () => {
   beforeEach(() => {
@@ -50,35 +209,10 @@ describe("TicketsPage", () => {
     expect(screen.getByText("当前共 0 个工单")).toBeVisible();
   });
 
-  test("renders tickets from the API response in newest-first order", async () => {
+  test("loads tickets with default createdAt desc sorting", async () => {
     mockedApiClient.get.mockResolvedValue({
       data: {
-        tickets: [
-          {
-            id: 2,
-            subject: "Newest ticket",
-            status: TicketStatus.open,
-            category: null,
-            createdAt: "2026-04-14T14:00:00.000Z",
-            customer: {
-              id: 2,
-              name: "Customer Two",
-              email: "customer.two@example.com",
-            },
-          },
-          {
-            id: 1,
-            subject: "Older ticket",
-            status: TicketStatus.resolved,
-            category: TicketCategory.technical,
-            createdAt: "2026-04-14T13:00:00.000Z",
-            customer: {
-              id: 1,
-              name: "Customer One",
-              email: "customer.one@example.com",
-            },
-          },
-        ],
+        tickets: ticketsBySortKey["createdAt:desc"],
       },
     });
 
@@ -99,7 +233,149 @@ describe("TicketsPage", () => {
     expect(rows[2]).toHaveTextContent("Older ticket");
 
     await waitFor(() => {
-      expect(mockedApiClient.get).toHaveBeenCalledWith("/api/tickets");
+      expect(mockedApiClient.get).toHaveBeenCalledWith("/api/tickets", {
+        params: {
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        },
+      });
     });
+  });
+
+  test("toggles createdAt sorting between asc and desc", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      const sortBy = String(config?.params?.sortBy ?? "createdAt");
+      const sortOrder = String(config?.params?.sortOrder ?? "desc");
+
+      return {
+        data: {
+          tickets: ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? [],
+        },
+      };
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+
+    fireEvent.click(screen.getByRole("button", { name: "创建时间" }));
+
+    await screen.findByText("Older ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          sortBy: "createdAt",
+          sortOrder: "asc",
+        },
+      });
+    });
+
+    let rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("Older ticket");
+    expect(rows[2]).toHaveTextContent("Newest ticket");
+
+    fireEvent.click(screen.getByRole("button", { name: "创建时间" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        },
+      });
+    });
+
+    rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("Newest ticket");
+    expect(rows[2]).toHaveTextContent("Older ticket");
+  });
+
+  test("requests server-side sorting for every visible sortable column", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      const sortBy = String(config?.params?.sortBy ?? "createdAt");
+      const sortOrder = String(config?.params?.sortOrder ?? "desc");
+
+      return {
+        data: {
+          tickets: ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? [],
+        },
+      };
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+
+    fireEvent.click(screen.getByRole("button", { name: "主题" }));
+    await screen.findByText("Alpha ticket");
+    expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+      params: {
+        sortBy: "subject",
+        sortOrder: "asc",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "客户" }));
+    await screen.findByText("Alice");
+    expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+      params: {
+        sortBy: "customer",
+        sortOrder: "asc",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "状态" }));
+    await screen.findByText("Closed first");
+    expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+      params: {
+        sortBy: "status",
+        sortOrder: "asc",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "分类" }));
+    await screen.findByText("Billing issue");
+    expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+      params: {
+        sortBy: "category",
+        sortOrder: "asc",
+      },
+    });
+  });
+
+  test("clears previous column sorting when switching to a new column", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      const sortBy = String(config?.params?.sortBy ?? "createdAt");
+      const sortOrder = String(config?.params?.sortOrder ?? "desc");
+
+      return {
+        data: {
+          tickets: ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? [],
+        },
+      };
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+
+    fireEvent.click(screen.getByRole("button", { name: "主题" }));
+    await screen.findByText("Alpha ticket");
+
+    fireEvent.click(screen.getByRole("button", { name: "客户" }));
+    await screen.findByText("Alice");
+
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          sortBy: "customer",
+          sortOrder: "asc",
+        },
+      });
+    });
+
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("Alice");
+    expect(rows[2]).toHaveTextContent("Bob");
   });
 });

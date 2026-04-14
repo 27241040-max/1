@@ -12,6 +12,21 @@ export enum TicketCategory {
   technical = "technical",
 }
 
+export const ticketSortFieldSchema = z.enum([
+  "subject",
+  "customer",
+  "status",
+  "category",
+  "createdAt",
+]);
+
+export const ticketSortOrderSchema = z.enum(["asc", "desc"]);
+
+export const ticketListQuerySchema = z.object({
+  sortBy: ticketSortFieldSchema.optional(),
+  sortOrder: ticketSortOrderSchema.optional(),
+});
+
 const emailSchema = z.string().trim().min(1, "请输入有效的邮箱地址").email("请输入有效的邮箱地址");
 
 export const inboundEmailSchema = z.object({
@@ -27,6 +42,9 @@ export const inboundEmailSchema = z.object({
 });
 
 export type InboundEmailInput = z.infer<typeof inboundEmailSchema>;
+export type TicketSortField = z.infer<typeof ticketSortFieldSchema>;
+export type TicketSortOrder = z.infer<typeof ticketSortOrderSchema>;
+export type TicketListQuery = z.infer<typeof ticketListQuerySchema>;
 
 export type TicketListItem = {
   category: TicketCategory | null;

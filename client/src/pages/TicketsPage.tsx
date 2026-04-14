@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { type TicketListItem } from "core/email";
+import {
+  type TicketListItem,
+  type TicketSortField,
+  type TicketSortOrder,
+} from "core/email";
+import { useState } from "react";
 
 import { TicketsTable } from "@/components/tickets/TicketsTable";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +16,28 @@ import { apiClient } from "../lib/api-client";
 type TicketsResponse = {
   tickets: TicketListItem[];
 };
+
+type TicketSorting = {
+  sortBy: TicketSortField;
+  sortOrder: TicketSortOrder;
+};
+
+const defaultSorting: TicketSorting = {
+  sortBy: "createdAt",
+  sortOrder: "desc",
+};
+
+function getSortingSummary({ sortBy, sortOrder }: TicketSorting) {
+  const fieldLabelMap: Record<TicketSortField, string> = {
+    category: "分类",
+    createdAt: "创建时间",
+    customer: "客户",
+    status: "状态",
+    subject: "主题",
+  };
+
+  return `当前按${fieldLabelMap[sortBy]}${sortOrder === "asc" ? "升序" : "降序"}排序`;
+}
 
 function TicketsTableSkeleton() {
   return (
@@ -51,10 +78,16 @@ function getTicketsErrorMessage(error: unknown) {
 }
 
 export function TicketsPage() {
-  const { data, isPending, isError, error } = useQuery({
-    queryKey: ["tickets"],
+  const [sorting, setSorting] = useState<TicketSorting>(defaultSorting);
+  const { data, isFetching, isPending, isError, error } = useQuery({
+    queryKey: ["tickets", sorting.sortBy, sorting.sortOrder],
     queryFn: async () => {
-      const response = await apiClient.get<TicketsResponse>("/api/tickets");
+      const response = await apiClient.get<TicketsResponse>("/api/tickets", {
+        params: {
+          sortBy: sorting.sortBy,
+          sortOrder: sorting.sortOrder,
+        },
+      });
       return response.data;
     },
   });
@@ -64,6 +97,21 @@ export function TicketsPage() {
   }
 
   const tickets = data?.tickets ?? [];
+  const handleSortingChange = (sortBy: TicketSortField) => {
+    setSorting((current) => {
+      if (current.sortBy !== sortBy) {
+        return {
+          sortBy,
+          sortOrder: "asc",
+        };
+      }
+
+      return {
+        sortBy,
+        sortOrder: current.sortOrder === "asc" ? "desc" : "asc",
+      };
+    });
+  };
 
   return (
     <section className="grid gap-6">
@@ -84,6 +132,7 @@ export function TicketsPage() {
           <div>
             <h3 className="text-lg font-semibold tracking-tight text-foreground">工单列表</h3>
             <p className="mt-1 text-sm text-muted-foreground">当前共 {tickets.length} 个工单</p>
+            <p className="mt-1 text-sm text-muted-foreground">{getSortingSummary(sorting)}</p>
           </div>
 
           {isPending ? (
@@ -98,7 +147,12 @@ export function TicketsPage() {
             </div>
           ) : (
             <div className="border-t border-border/70">
-              <TicketsTable tickets={tickets} />
+              <TicketsTable
+                isSortingPending={isFetching}
+                onSortingChange={handleSortingChange}
+                sorting={sorting}
+                tickets={tickets}
+              />
             </div>
           )}
         </div>
