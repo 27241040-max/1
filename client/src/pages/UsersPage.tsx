@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { type CreateUserInput, type UpdateUserInput } from "core/users";
+import { UserRole, type CreateUserInput, type UpdateUserInput } from "core/users";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 
+import { DeleteUserDialog } from "@/components/users/DeleteUserDialog";
 import { UserFormDialog } from "@/components/users/UserFormDialog";
 import { UsersTable, type UserListItem } from "@/components/users/UsersTable";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ type UsersResponse = {
 
 type CreateUserResponse = { user: UserListItem };
 type UpdateUserResponse = { user: UserListItem };
+type DeleteUserResponse = { success: true };
 type DialogState =
   | {
       error?: string;
@@ -34,6 +36,10 @@ type DialogState =
       mode: null;
       user: null;
     };
+type DeleteDialogState = {
+  error?: string;
+  user: UserListItem | null;
+};
 
 function getUserFormErrorMessage(error: unknown, fallbackMessage: string) {
   if (axios.isAxiosError<{ error?: string }>(error)) {
@@ -78,6 +84,7 @@ function UsersTableSkeleton() {
 export function UsersPage() {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>({ mode: null, user: null });
+  const [del, setDel] = useState<DeleteDialogState>({ user: null });
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -125,6 +132,22 @@ export function UsersPage() {
       }));
     },
   });
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiClient.delete<DeleteUserResponse>(`/api/users/${userId}`);
+      return response.data;
+    },
+    onSuccess: async () => {
+      setDel({ user: null });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (mutationError) => {
+      setDel((current) => ({
+        ...current,
+        error: getUserFormErrorMessage(mutationError, "删除失败，请稍后再试。"),
+      }));
+    },
+  });
 
   if (isError) {
     console.error("用户列表加载失败:", error);
@@ -151,6 +174,36 @@ export function UsersPage() {
 
   const handleEditClick = (user: UserListItem) => {
     setDialog({ mode: "edit", user });
+  };
+
+  const handleDeleteClick = (user: UserListItem) => {
+    if (user.role === UserRole.admin) {
+      return;
+    }
+
+    setDel({ user });
+  };
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    if (open) {
+      return;
+    }
+
+    setDel({ user: null });
+    deleteUserMutation.reset();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!del.user) {
+      return;
+    }
+
+    setDel((current) => ({ ...current, error: undefined }));
+    try {
+      await deleteUserMutation.mutateAsync(del.user.id);
+    } catch {
+      // Error state is surfaced through the mutation's onError handler.
+    }
   };
 
   const onSubmit = async (values: CreateUserInput | UpdateUserInput) => {
@@ -210,7 +263,7 @@ export function UsersPage() {
               </div>
             ) : (
               <div className="border-t border-border/70">
-                <UsersTable onEdit={handleEditClick} users={users} />
+                <UsersTable onDelete={handleDeleteClick} onEdit={handleEditClick} users={users} />
               </div>
             )}
           </div>
@@ -232,6 +285,15 @@ export function UsersPage() {
         mode={dialog.mode ?? "create"}
         onOpenChange={handleDialogOpenChange}
         onSubmit={onSubmit}
+      />
+
+      <DeleteUserDialog
+        error={del.error}
+        isOpen={del.user !== null}
+        isSubmitting={deleteUserMutation.isPending}
+        name={del.user?.name ?? ""}
+        onConfirm={handleDeleteConfirm}
+        onOpenChange={handleDeleteDialogOpenChange}
       />
     </>
   );

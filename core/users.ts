@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export const UserRole = {
+  admin: "admin",
+  agent: "agent",
+} as const;
+
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
 const nameSchema = z.string().trim().min(3, "名称至少包含 3 个字符");
 const emailSchema = z.string().trim().min(1, "请输入有效的邮箱地址").email("请输入有效的邮箱地址");
 const createPasswordSchema = z.string().trim().min(8, "密码至少应为 8 个字符");

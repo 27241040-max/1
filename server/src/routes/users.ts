@@ -71,6 +71,9 @@ usersRouter.get("/", async (req, res) => {
       createdAt: true,
       updatedAt: true,
     },
+    where: {
+      deletedAt: null,
+    },
   });
 
   res.json({ users });
@@ -181,4 +184,55 @@ usersRouter.patch("/:id", async (req, res) => {
   });
 
   res.json({ user });
+});
+
+usersRouter.delete("/:id", async (req, res) => {
+  const userId = req.params.id;
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      role: true,
+      deletedAt: true,
+    },
+  });
+
+  if (!user) {
+    res.status(404).json({ error: "用户不存在。" });
+    return;
+  }
+
+  if (user.deletedAt) {
+    res.status(409).json({ error: "该用户已删除。" });
+    return;
+  }
+
+  if (user.role === UserRole.admin) {
+    res.status(403).json({ error: "管理员用户不能被删除。" });
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        banned: true,
+        banExpires: null,
+        banReason: "deleted",
+        deletedAt: new Date(),
+        deletedBy: req.user?.id ?? null,
+      },
+    }),
+    prisma.session.deleteMany({
+      where: {
+        userId,
+      },
+    }),
+  ]);
+
+  res.json({ success: true });
 });

@@ -11,6 +11,7 @@
 - 前端数据请求默认约定：优先使用 `axios` 作为 HTTP 客户端，优先使用 `@tanstack/react-query` 管理服务端状态；表单、接口入参和其他结构化数据校验优先使用 `zod`；除非有明确理由，否则不要为常规数据获取继续新增裸 `fetch` 或手写 `useEffect + useState` 请求逻辑。
 - 前端组件/单元测试当前使用 `Vitest + React Testing Library + jsdom + jest-dom`，测试配置在 `client/vite.config.ts`。
 - 共享的 `zod` schema 优先定义在 `core` workspace 包中，再由 `client` 和 `server` 共同引用；避免在前后端重复定义同一份数据结构校验。
+- 客户端涉及角色值时，统一使用 `core/users` 中的 `UserRole` enum，包括路由守卫、按钮禁用逻辑和页面条件分支，避免硬编码 `"admin"` / `"agent"`。
 
 ## 2. 认证与权限
 - 认证方案使用 Better Auth。

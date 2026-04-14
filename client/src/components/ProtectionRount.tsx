@@ -1,3 +1,4 @@
+import { UserRole } from "core/users";
 import { Navigate } from "react-router";
 
 import { authClient } from "../lib/auth-client";
@@ -59,7 +60,7 @@ export function ProtectionRount() {
   }
 
   const displayName = session.user.name?.trim() || session.user.email;
-  const isAdmin = (session.user as { role?: string }).role === "admin";
+  const isAdmin = (session.user as { role?: string }).role === UserRole.admin;
 
   return <Layout displayName={displayName} isAdmin={isAdmin} />;
 }

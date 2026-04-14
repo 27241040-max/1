@@ -1,3 +1,4 @@
+import { UserRole } from "core/users";
 import { Navigate, Outlet } from "react-router";
 
 import { authClient } from "../lib/auth-client";
@@ -14,7 +15,7 @@ export function AdminProtectionRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (role !== "admin") {
+  if (role !== UserRole.admin) {
     return <Navigate to="/" replace />;
   }
 

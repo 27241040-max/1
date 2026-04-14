@@ -1,4 +1,5 @@
-import { PencilIcon } from "lucide-react";
+import { UserRole, type UserRole as UserRoleValue } from "core/users";
+import { PencilIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +16,14 @@ export type UserListItem = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "agent";
+  role: UserRoleValue;
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
 type UsersTableProps = {
+  onDelete: (user: UserListItem) => void;
   onEdit: (user: UserListItem) => void;
   users: UserListItem[];
 };
@@ -34,14 +36,14 @@ function formatDate(value: string) {
 }
 
 function getRoleBadgeClassName(role: UserListItem["role"]) {
-  if (role === "admin") {
+  if (role === UserRole.admin) {
     return "border-transparent bg-primary text-primary-foreground";
   }
 
   return "border-border bg-secondary text-secondary-foreground";
 }
 
-export function UsersTable({ onEdit, users }: UsersTableProps) {
+export function UsersTable({ onDelete, onEdit, users }: UsersTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -81,16 +83,29 @@ export function UsersTable({ onEdit, users }: UsersTableProps) {
               {formatDate(user.updatedAt)}
             </TableCell>
             <TableCell className="align-top text-right">
-              <Button
-                aria-label={`编辑用户 ${user.name}`}
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => onEdit(user)}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
-              >
-                <PencilIcon className="size-4" />
-              </Button>
+              <div className="flex justify-end gap-1">
+                <Button
+                  aria-label={`编辑用户 ${user.name}`}
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => onEdit(user)}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <PencilIcon className="size-4" />
+                </Button>
+                <Button
+                  aria-label={`删除用户 ${user.name}`}
+                  className="text-muted-foreground hover:text-destructive"
+                  disabled={user.role === UserRole.admin}
+                  onClick={() => onDelete(user)}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2Icon className="size-4" />
+                </Button>
+              </div>
             </TableCell>
           </TableRow>
         ))}

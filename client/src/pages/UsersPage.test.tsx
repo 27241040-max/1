@@ -7,6 +7,7 @@ import { UsersPage } from "./UsersPage";
 
 vi.mock("../lib/api-client", () => ({
   apiClient: {
+    delete: vi.fn(),
     get: vi.fn(),
     patch: vi.fn(),
     post: vi.fn(),
@@ -89,6 +90,8 @@ describe("UsersPage", () => {
     expect(screen.getByText("admin")).toBeVisible();
     expect(screen.getByText("agent")).toBeVisible();
     expect(screen.getAllByRole("button", { name: /编辑用户/i })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "删除用户 Administrator" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "删除用户 Agent User" })).toBeEnabled();
     expect(screen.getByText("已验证")).toBeVisible();
     expect(screen.getByText("未验证")).toBeVisible();
 
@@ -112,6 +115,37 @@ describe("UsersPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "创建用户" }));
 
     expect(screen.getByRole("heading", { name: "创建新用户" })).toBeVisible();
+  });
+
+  test("shows and hides the delete dialog", async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        users: [
+          {
+            id: "2",
+            name: "Agent User",
+            email: "agent@example.com",
+            role: "agent",
+            emailVerified: false,
+            createdAt: "2026-04-07T10:00:00.000Z",
+            updatedAt: "2026-04-07T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "删除用户 Agent User" }));
+    expect(screen.getByRole("heading", { name: "确认删除用户" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "确认删除用户" })).not.toBeInTheDocument();
+    });
   });
 
   test("hides the create user dialog when clicking outside or the close button", async () => {
@@ -461,5 +495,84 @@ describe("UsersPage", () => {
     await screen.findByText("该邮箱已存在。");
     expect(screen.getByRole("heading", { name: "编辑用户" })).toBeVisible();
     expect(screen.getByText("该邮箱已存在。")).toBeVisible();
+  });
+
+  test("deletes a user and refreshes the list", async () => {
+    mockedApiClient.get
+      .mockResolvedValueOnce({
+        data: {
+          users: [
+            {
+              id: "2",
+              name: "Agent User",
+              email: "agent@example.com",
+              role: "agent",
+              emailVerified: false,
+              createdAt: "2026-04-07T10:00:00.000Z",
+              updatedAt: "2026-04-07T12:00:00.000Z",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          users: [],
+        },
+      });
+    mockedApiClient.delete.mockResolvedValue({
+      data: {
+        success: true,
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "删除用户 Agent User" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.delete).toHaveBeenCalledWith("/api/users/2");
+    });
+
+    await screen.findByText("暂无用户数据。");
+    expect(screen.queryByRole("heading", { name: "确认删除用户" })).not.toBeInTheDocument();
+  });
+
+  test("shows delete error and keeps dialog open when deletion fails", async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        users: [
+          {
+            id: "2",
+            name: "Agent User",
+            email: "agent@example.com",
+            role: "agent",
+            emailVerified: false,
+            createdAt: "2026-04-07T10:00:00.000Z",
+            updatedAt: "2026-04-07T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+    mockedApiClient.delete.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          error: "删除失败。",
+        },
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "删除用户 Agent User" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+
+    await screen.findByText("删除失败。");
+    expect(screen.getByRole("heading", { name: "确认删除用户" })).toBeVisible();
   });
 });
