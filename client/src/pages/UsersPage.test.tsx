@@ -8,6 +8,7 @@ import { UsersPage } from "./UsersPage";
 vi.mock("../lib/api-client", () => ({
   apiClient: {
     get: vi.fn(),
+    patch: vi.fn(),
     post: vi.fn(),
   },
 }));
@@ -87,6 +88,7 @@ describe("UsersPage", () => {
     expect(screen.getByText("agent@example.com")).toBeVisible();
     expect(screen.getByText("admin")).toBeVisible();
     expect(screen.getByText("agent")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /编辑用户/i })).toHaveLength(2);
     expect(screen.getByText("已验证")).toBeVisible();
     expect(screen.getByText("未验证")).toBeVisible();
 
@@ -150,6 +152,36 @@ describe("UsersPage", () => {
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "创建新用户" })).not.toBeInTheDocument();
     });
+  });
+
+  test("opens the edit dialog with prefilled user data", async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        users: [
+          {
+            id: "1",
+            name: "Agent User",
+            email: "agent@example.com",
+            role: "agent",
+            emailVerified: false,
+            createdAt: "2026-04-07T10:00:00.000Z",
+            updatedAt: "2026-04-07T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑用户 Agent User" }));
+
+    expect(screen.getByRole("heading", { name: "编辑用户" })).toBeVisible();
+    expect(screen.getByDisplayValue("Agent User")).toBeVisible();
+    expect(screen.getByDisplayValue("agent@example.com")).toBeVisible();
+    expect(screen.getByLabelText("密码")).toHaveValue("");
+    expect(screen.getByText("留空则不修改密码")).toBeVisible();
   });
 
   test("opens the create user dialog and validates the form", async () => {
@@ -243,6 +275,122 @@ describe("UsersPage", () => {
     expect(screen.queryByRole("heading", { name: "创建新用户" })).not.toBeInTheDocument();
   });
 
+  test("updates a user, refreshes the table, and omits password when left blank", async () => {
+    mockedApiClient.get
+      .mockResolvedValueOnce({
+        data: {
+          users: [
+            {
+              id: "2",
+              name: "Agent User",
+              email: "agent@example.com",
+              role: "agent",
+              emailVerified: false,
+              createdAt: "2026-04-07T10:00:00.000Z",
+              updatedAt: "2026-04-07T12:00:00.000Z",
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          users: [
+            {
+              id: "2",
+              name: "Updated Agent",
+              email: "updated.agent@example.com",
+              role: "agent",
+              emailVerified: false,
+              createdAt: "2026-04-07T10:00:00.000Z",
+              updatedAt: "2026-04-09T12:00:00.000Z",
+            },
+          ],
+        },
+      });
+    mockedApiClient.patch.mockResolvedValue({
+      data: {
+        user: {
+          id: "2",
+          name: "Updated Agent",
+          email: "updated.agent@example.com",
+          role: "agent",
+          emailVerified: false,
+          createdAt: "2026-04-07T10:00:00.000Z",
+          updatedAt: "2026-04-09T12:00:00.000Z",
+        },
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑用户 Agent User" }));
+    fireEvent.change(screen.getByLabelText("姓名"), { target: { value: "Updated Agent" } });
+    fireEvent.change(screen.getByLabelText("电子邮件"), {
+      target: { value: "updated.agent@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.patch).toHaveBeenCalledWith("/api/users/2", {
+        name: "Updated Agent",
+        email: "updated.agent@example.com",
+      });
+    });
+
+    await screen.findByText("Updated Agent");
+    expect(screen.getByText("updated.agent@example.com")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "编辑用户" })).not.toBeInTheDocument();
+  });
+
+  test("updates a user password when provided", async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        users: [
+          {
+            id: "2",
+            name: "Agent User",
+            email: "agent@example.com",
+            role: "agent",
+            emailVerified: false,
+            createdAt: "2026-04-07T10:00:00.000Z",
+            updatedAt: "2026-04-07T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+    mockedApiClient.patch.mockResolvedValue({
+      data: {
+        user: {
+          id: "2",
+          name: "Agent User",
+          email: "agent@example.com",
+          role: "agent",
+          emailVerified: false,
+          createdAt: "2026-04-07T10:00:00.000Z",
+          updatedAt: "2026-04-07T12:00:00.000Z",
+        },
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑用户 Agent User" }));
+    fireEvent.change(screen.getByLabelText("密码"), { target: { value: "newpassword123" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.patch).toHaveBeenCalledWith("/api/users/2", {
+        name: "Agent User",
+        email: "agent@example.com",
+        password: "newpassword123",
+      });
+    });
+  });
+
   test("shows a server error and keeps the dialog open when creation fails", async () => {
     mockedApiClient.get.mockResolvedValue({
       data: {
@@ -272,6 +420,46 @@ describe("UsersPage", () => {
 
     await screen.findByText("该邮箱已存在。");
     expect(screen.getByRole("heading", { name: "创建新用户" })).toBeVisible();
+    expect(screen.getByText("该邮箱已存在。")).toBeVisible();
+  });
+
+  test("shows a server error and keeps the edit dialog open when update fails", async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        users: [
+          {
+            id: "2",
+            name: "Agent User",
+            email: "agent@example.com",
+            role: "agent",
+            emailVerified: false,
+            createdAt: "2026-04-07T10:00:00.000Z",
+            updatedAt: "2026-04-07T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+    mockedApiClient.patch.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          error: "该邮箱已存在。",
+        },
+      },
+    });
+
+    renderWithQuery(<UsersPage />);
+
+    await screen.findByText("Agent User");
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑用户 Agent User" }));
+    fireEvent.change(screen.getByLabelText("电子邮件"), {
+      target: { value: "existing@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await screen.findByText("该邮箱已存在。");
+    expect(screen.getByRole("heading", { name: "编辑用户" })).toBeVisible();
     expect(screen.getByText("该邮箱已存在。")).toBeVisible();
   });
 });

@@ -1,20 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { type CreateUserInput } from "core/users";
+import { type CreateUserInput, type UpdateUserInput } from "core/users";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { CreateUserDialog } from "@/components/users/CreateUserDialog";
+import { UserFormDialog } from "@/components/users/UserFormDialog";
 import { UsersTable, type UserListItem } from "@/components/users/UsersTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { apiClient } from "../lib/api-client";
@@ -24,51 +17,67 @@ type UsersResponse = {
 };
 
 type CreateUserResponse = { user: UserListItem };
+type UpdateUserResponse = { user: UserListItem };
+type DialogState =
+  | {
+      error?: string;
+      mode: "create";
+      user: null;
+    }
+  | {
+      error?: string;
+      mode: "edit";
+      user: UserListItem;
+    }
+  | {
+      error?: string;
+      mode: null;
+      user: null;
+    };
 
-function getCreateUserErrorMessage(error: unknown) {
+function getUserFormErrorMessage(error: unknown, fallbackMessage: string) {
   if (axios.isAxiosError<{ error?: string }>(error)) {
-    return error.response?.data?.error ?? "创建用户失败，请稍后再试。";
+    return error.response?.data?.error ?? fallbackMessage;
   }
 
-  return "创建用户失败，请稍后再试。";
+  return fallbackMessage;
 }
 
 function UsersTableSkeleton() {
   return (
-    <div className="px-4 pb-4 md:px-6">
-      <div className="rounded-xl border border-border/70">
-        <div className="grid grid-cols-5 gap-4 border-b border-border bg-muted/20 px-4 py-3">
-          <Skeleton className="h-4 w-14" />
-          <Skeleton className="h-4 w-12" />
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="grid grid-cols-5 items-center gap-4 border-b border-border/70 px-4 py-4 last:border-b-0"
-          >
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-4 w-40" />
-            </div>
-            <Skeleton className="h-6 w-16 rounded-full" />
-            <Skeleton className="h-6 w-16 rounded-full" />
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-28" />
-          </div>
-        ))}
+    <div className="border-t border-border/70">
+      <div className="grid grid-cols-6 gap-4 border-b border-border/70 px-1 py-3 text-sm">
+        <Skeleton className="h-4 w-14" />
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="ml-auto h-4 w-8" />
       </div>
+
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="grid grid-cols-6 items-center gap-4 border-b border-border/60 px-1 py-4 last:border-b-0"
+        >
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="ml-auto size-8 rounded-full" />
+        </div>
+      ))}
     </div>
   );
 }
 
 export function UsersPage() {
   const queryClient = useQueryClient();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [createUserErrorMessage, setCreateUserErrorMessage] = useState<string>();
+  const [dialog, setDialog] = useState<DialogState>({ mode: null, user: null });
   const { data, isPending, isError, error } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -82,12 +91,38 @@ export function UsersPage() {
       return response.data;
     },
     onSuccess: async () => {
-      setCreateUserErrorMessage(undefined);
-      setIsCreateDialogOpen(false);
+      setDialog({ mode: null, user: null });
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (mutationError) => {
-      setCreateUserErrorMessage(getCreateUserErrorMessage(mutationError));
+      setDialog((current) => ({
+        ...current,
+        error: getUserFormErrorMessage(mutationError, "创建用户失败，请稍后再试。"),
+      }));
+    },
+  });
+  const updateUserMutation = useMutation({
+    mutationFn: async ({
+      userId,
+      values,
+    }: {
+      userId: string;
+      values: UpdateUserInput;
+    }) => {
+      const { password, ...rest } = values;
+      const payload = password ? { ...rest, password } : rest;
+      const response = await apiClient.patch<UpdateUserResponse>(`/api/users/${userId}`, payload);
+      return response.data;
+    },
+    onSuccess: async () => {
+      setDialog({ mode: null, user: null });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (mutationError) => {
+      setDialog((current) => ({
+        ...current,
+        error: getUserFormErrorMessage(mutationError, "保存失败，请稍后再试。"),
+      }));
     },
   });
 
@@ -96,20 +131,40 @@ export function UsersPage() {
   }
 
   const users = data?.users ?? [];
+  const isUserFormOpen = dialog.mode !== null;
+  const isUserFormSubmitting =
+    dialog.mode === "edit" ? updateUserMutation.isPending : createUserMutation.isPending;
 
   const handleDialogOpenChange = (open: boolean) => {
-    setIsCreateDialogOpen(open);
-
-    if (!open) {
-      createUserMutation.reset();
-      setCreateUserErrorMessage(undefined);
+    if (open) {
+      return;
     }
+
+    setDialog({ mode: null, user: null });
+    createUserMutation.reset();
+    updateUserMutation.reset();
   };
 
-  const onSubmit = async (values: CreateUserInput) => {
-    setCreateUserErrorMessage(undefined);
+  const handleCreateClick = () => {
+    setDialog({ mode: "create", user: null });
+  };
+
+  const handleEditClick = (user: UserListItem) => {
+    setDialog({ mode: "edit", user });
+  };
+
+  const onSubmit = async (values: CreateUserInput | UpdateUserInput) => {
+    setDialog((current) => ({ ...current, error: undefined }));
     try {
-      await createUserMutation.mutateAsync(values);
+      if (dialog.mode === "edit" && dialog.user) {
+        await updateUserMutation.mutateAsync({
+          userId: dialog.user.id,
+          values: values as UpdateUserInput,
+        });
+        return;
+      }
+
+      await createUserMutation.mutateAsync(values as CreateUserInput);
     } catch {
       // Error state is surfaced through the mutation's onError handler.
     }
@@ -118,55 +173,63 @@ export function UsersPage() {
   return (
     <>
       <section className="grid gap-6">
-        <Card className="gap-0 rounded-2xl">
-          <CardHeader className="border-b">
+        <div className="grid gap-6">
+          <div className="border-b border-border/70 pb-5">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
               <Badge className="w-fit uppercase" variant="secondary">
                 Admin Only
               </Badge>
-              <CardTitle className="text-[1.55rem] font-semibold tracking-[-0.04em]">
-                Users
-              </CardTitle>
-              <CardDescription className="text-[0.95rem] leading-6">
+              <h2 className="text-[1.55rem] font-semibold tracking-[-0.04em] text-foreground">Users</h2>
+              <p className="text-[0.95rem] leading-6 text-muted-foreground">
                 仅管理员可查看系统内的账号列表。这里展示当前用户的基础资料、角色和邮箱验证状态。
-              </CardDescription>
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="pt-4">
+          </div>
+
+          <div className="grid gap-4">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <h3 className="text-lg font-semibold tracking-tight text-card-foreground">用户列表</h3>
+                <h3 className="text-lg font-semibold tracking-tight text-foreground">用户列表</h3>
                 <p className="mt-1 text-sm text-muted-foreground">当前共 {users.length} 个用户</p>
               </div>
-              <Button className="min-w-32" onClick={() => setIsCreateDialogOpen(true)} type="button">
+              <Button className="min-w-32" onClick={handleCreateClick} type="button">
                 <PlusIcon className="size-4" />
                 创建用户
               </Button>
             </div>
-          </CardContent>
 
-          {isPending ? (
-            <UsersTableSkeleton />
-          ) : isError ? (
-            <CardContent className="pb-6 pt-2 text-sm text-destructive">
-              用户列表加载失败，请稍后再试。
-            </CardContent>
-          ) : users.length === 0 ? (
-            <CardContent className="pb-6 pt-2 text-sm text-muted-foreground">
-              暂无用户数据。
-            </CardContent>
-          ) : (
-            <div className="px-4 pb-4 md:px-6">
-              <UsersTable users={users} />
-            </div>
-          )}
-        </Card>
+            {isPending ? (
+              <UsersTableSkeleton />
+            ) : isError ? (
+              <div className="border-t border-border/70 pt-4 text-sm text-destructive">
+                用户列表加载失败，请稍后再试。
+              </div>
+            ) : users.length === 0 ? (
+              <div className="border-t border-border/70 pt-4 text-sm text-muted-foreground">
+                暂无用户数据。
+              </div>
+            ) : (
+              <div className="border-t border-border/70">
+                <UsersTable onEdit={handleEditClick} users={users} />
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
-      <CreateUserDialog
-        errorMessage={createUserErrorMessage}
-        isOpen={isCreateDialogOpen}
-        isSubmitting={createUserMutation.isPending}
+      <UserFormDialog
+        errorMessage={dialog.error}
+        initialValues={
+          dialog.mode === "edit"
+            ? {
+                email: dialog.user.email,
+                name: dialog.user.name,
+              }
+            : undefined
+        }
+        isOpen={isUserFormOpen}
+        isSubmitting={isUserFormSubmitting}
+        mode={dialog.mode ?? "create"}
         onOpenChange={handleDialogOpenChange}
         onSubmit={onSubmit}
       />

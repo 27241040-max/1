@@ -1,3 +1,6 @@
+import { PencilIcon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -19,6 +22,7 @@ export type UserListItem = {
 };
 
 type UsersTableProps = {
+  onEdit: (user: UserListItem) => void;
   users: UserListItem[];
 };
 
@@ -37,21 +41,22 @@ function getRoleBadgeClassName(role: UserListItem["role"]) {
   return "border-border bg-secondary text-secondary-foreground";
 }
 
-export function UsersTable({ users }: UsersTableProps) {
+export function UsersTable({ onEdit, users }: UsersTableProps) {
   return (
     <Table>
       <TableHeader>
-        <TableRow className="bg-muted/30 hover:bg-muted/30">
+        <TableRow className="border-b border-border/70 hover:bg-transparent">
           <TableHead>用户</TableHead>
           <TableHead>角色</TableHead>
           <TableHead>邮箱验证</TableHead>
           <TableHead>创建时间</TableHead>
           <TableHead>最近更新</TableHead>
+          <TableHead className="text-right">操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {users.map((user) => (
-          <TableRow key={user.id}>
+          <TableRow className="border-b border-border/60 hover:bg-transparent" key={user.id}>
             <TableCell className="align-top">
               <strong className="block text-sm text-card-foreground">{user.name}</strong>
               <span className="mt-1 block text-sm text-muted-foreground">{user.email}</span>
@@ -74,6 +79,18 @@ export function UsersTable({ users }: UsersTableProps) {
             </TableCell>
             <TableCell className="align-top text-muted-foreground">
               {formatDate(user.updatedAt)}
+            </TableCell>
+            <TableCell className="align-top text-right">
+              <Button
+                aria-label={`编辑用户 ${user.name}`}
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => onEdit(user)}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <PencilIcon className="size-4" />
+              </Button>
             </TableCell>
           </TableRow>
         ))}

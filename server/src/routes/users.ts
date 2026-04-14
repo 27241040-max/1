@@ -1,16 +1,61 @@
-import { createUserSchema } from "core/users";
+import { createUserSchema, updateUserSchema } from "core/users";
 import { fromNodeHeaders } from "better-auth/node";
 import { Router } from "express";
+import type { ZodError } from "zod";
 
 import { auth } from "../auth";
+import { getRequiredEnv } from "../config";
 import { UserRole } from "../generated/prisma";
 import { requireAdmin } from "../middleware/require-admin";
 import { requireAuth } from "../middleware/require-auth";
 import { prisma } from "../prisma";
 
 export const usersRouter = Router();
+const betterAuthBaseUrl = getRequiredEnv("BETTER_AUTH_URL").replace(/\/$/, "");
 
 usersRouter.use(requireAuth, requireAdmin);
+
+function getValidationErrorMessage(error: ZodError, fallbackMessage = "请求数据不合法。") {
+  return error.issues[0]?.message ?? fallbackMessage;
+}
+
+async function callBetterAuthAdminEndpoint(
+  endpoint: string,
+  options: {
+    body: Record<string, unknown>;
+    cookieHeader: string | undefined;
+    fallbackErrorMessage: string;
+    originHeader: string | undefined;
+  },
+) {
+  const response = await fetch(`${betterAuthBaseUrl}/api/auth${endpoint}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(options.cookieHeader ? { cookie: options.cookieHeader } : {}),
+      ...(options.originHeader ? { origin: options.originHeader } : {}),
+    },
+    body: JSON.stringify(options.body),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const responseBody = contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : null;
+  const errorMessage =
+    (responseBody as { error?: { message?: string }; message?: string } | null)?.error?.message ??
+    (responseBody as { error?: { message?: string }; message?: string } | null)?.message ??
+    options.fallbackErrorMessage;
+
+  return {
+    errorMessage,
+    status: response.status,
+  };
+}
 
 usersRouter.get("/", async (req, res) => {
   const users = await prisma.user.findMany({
@@ -35,7 +80,7 @@ usersRouter.post("/", async (req, res) => {
   const result = createUserSchema.safeParse(req.body ?? {});
 
   if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0]?.message ?? "请求数据不合法。" });
+    res.status(400).json({ error: getValidationErrorMessage(result.error) });
     return;
   }
 
@@ -59,4 +104,81 @@ usersRouter.post("/", async (req, res) => {
       updatedAt: created.user.updatedAt,
     },
   });
+});
+
+usersRouter.patch("/:id", async (req, res) => {
+  const result = updateUserSchema.safeParse(req.body ?? {});
+
+  if (!result.success) {
+    res.status(400).json({ error: getValidationErrorMessage(result.error) });
+    return;
+  }
+
+  const userId = req.params.id;
+  const normalizedEmail = result.data.email.toLowerCase();
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingUser && existingUser.id !== userId) {
+    res.status(409).json({ error: "该邮箱已存在。" });
+    return;
+  }
+
+  const updateUserResult = await callBetterAuthAdminEndpoint("/admin/update-user", {
+    body: {
+      userId,
+      data: {
+        email: normalizedEmail,
+        name: result.data.name,
+      },
+    },
+    cookieHeader: req.headers.cookie,
+    fallbackErrorMessage: "保存用户资料失败。",
+    originHeader: req.headers.origin,
+  });
+
+  if (updateUserResult) {
+    res.status(updateUserResult.status).json({ error: updateUserResult.errorMessage });
+    return;
+  }
+
+  if (result.data.password) {
+    const setPasswordResult = await callBetterAuthAdminEndpoint("/admin/set-user-password", {
+      body: {
+        userId,
+        newPassword: result.data.password,
+      },
+      cookieHeader: req.headers.cookie,
+      fallbackErrorMessage: "修改密码失败。",
+      originHeader: req.headers.origin,
+    });
+
+    if (setPasswordResult) {
+      res.status(setPasswordResult.status).json({ error: setPasswordResult.errorMessage });
+      return;
+    }
+  }
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      emailVerified: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  res.json({ user });
 });
