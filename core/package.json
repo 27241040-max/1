@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./index.ts",
+    "./email": "./email.ts",
     "./users": "./users.ts"
   },
   "dependencies": {

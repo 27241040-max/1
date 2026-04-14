@@ -14,6 +14,49 @@ enum UserRole {
   agent
 }
 
+enum TicketStatus {
+  open
+  resolved
+  closed
+}
+
+enum TicketCategory {
+  general
+  technical
+  refund_request
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tickets   Ticket[]
+
+  @@map("customer")
+}
+
+model Ticket {
+  id                Int             @id @default(autoincrement())
+  subject           String
+  bodyText          String
+  status            TicketStatus    @default(open)
+  category          TicketCategory?
+  source            String
+  externalMessageId String?         @unique
+  customerId        Int
+  assignedUserId    String?
+  customer          Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  assignedUser      User?           @relation("AssignedTickets", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([assignedUserId])
+  @@index([customerId])
+  @@map("ticket")
+}
+
 model User {
   id            String    @id
   name          String
@@ -30,6 +73,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  assignedTickets Ticket[] @relation("AssignedTickets")
 
   @@map("user")
 }

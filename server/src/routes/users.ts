@@ -1,11 +1,11 @@
 import { createUserSchema, updateUserSchema } from "core/users";
 import { fromNodeHeaders } from "better-auth/node";
 import { Router } from "express";
-import type { ZodError } from "zod";
 
 import { auth } from "../auth";
 import { getRequiredEnv } from "../config";
 import { UserRole } from "../generated/prisma";
+import { getIssueMessage } from "../lib/validation";
 import { requireAdmin } from "../middleware/require-admin";
 import { requireAuth } from "../middleware/require-auth";
 import { prisma } from "../prisma";
@@ -14,10 +14,6 @@ export const usersRouter = Router();
 const betterAuthBaseUrl = getRequiredEnv("BETTER_AUTH_URL").replace(/\/$/, "");
 
 usersRouter.use(requireAuth, requireAdmin);
-
-function getValidationErrorMessage(error: ZodError, fallbackMessage = "请求数据不合法。") {
-  return error.issues[0]?.message ?? fallbackMessage;
-}
 
 async function callBetterAuthAdminEndpoint(
   endpoint: string,
@@ -83,7 +79,7 @@ usersRouter.post("/", async (req, res) => {
   const result = createUserSchema.safeParse(req.body ?? {});
 
   if (!result.success) {
-    res.status(400).json({ error: getValidationErrorMessage(result.error) });
+    res.status(400).json({ error: getIssueMessage(result.error) });
     return;
   }
 
@@ -113,7 +109,7 @@ usersRouter.patch("/:id", async (req, res) => {
   const result = updateUserSchema.safeParse(req.body ?? {});
 
   if (!result.success) {
-    res.status(400).json({ error: getValidationErrorMessage(result.error) });
+    res.status(400).json({ error: getIssueMessage(result.error) });
     return;
   }
 

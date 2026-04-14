@@ -23,6 +23,7 @@
 - 用户包含附加字段 `role`，可选值为 `admin` / `agent`，默认值为 `agent`。
 - 服务端涉及角色值时，优先使用 Prisma 生成的 `UserRole` enum，避免直接硬编码 `"admin"` / `"agent"` 字面量。
 - 使用 Express 5 编写异步路由时，优先依赖其对 rejected promises 的自动错误传递，不要为常规 async handler 额外包一层 `try/catch`；需要统一映射错误响应时，放到全局 error middleware。
+- 服务端多个路由使用 `zod` 时，优先复用共享的验证辅助函数（例如从 `ZodError` 提取首条 issue 文案），不要在每个路由里重复写同样的错误拼装逻辑。
 - Better Auth 已禁用邮箱注册入口：`disabledPaths: ["/sign-up/email"]`，当前只支持已有账号登录。
 - Better Auth 速率限制已显式配置为仅在生产环境开启：`server/src/lib/auth.ts` 中 `rateLimit.enabled = process.env.NODE_ENV === "production"`。
 
