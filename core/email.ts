@@ -36,6 +36,8 @@ const optionalTrimmedStringSchema = z.preprocess(
 
 export const ticketListQuerySchema = z.object({
   category: z.nativeEnum(TicketCategory).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
   q: optionalTrimmedStringSchema,
   status: z.nativeEnum(TicketStatus).optional(),
   sortBy: ticketSortFieldSchema.optional(),
@@ -60,6 +62,12 @@ export type InboundEmailInput = z.infer<typeof inboundEmailSchema>;
 export type TicketSortField = z.infer<typeof ticketSortFieldSchema>;
 export type TicketSortOrder = z.infer<typeof ticketSortOrderSchema>;
 export type TicketListQuery = z.infer<typeof ticketListQuerySchema>;
+export type TicketListMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 export type TicketListItem = {
   category: TicketCategory | null;

@@ -69,26 +69,42 @@ ticketsRouter.get("/", async (req, res) => {
         }
       : {}),
   };
+  const pageSize = result.data.pageSize ?? 10;
+  const page = result.data.page ?? 1;
+  const skip = (page - 1) * pageSize;
   const sortBy = result.data.sortBy ?? "createdAt";
   const sortOrder = result.data.sortOrder ?? "desc";
-  const tickets = await prisma.ticket.findMany({
-    orderBy: [getTicketOrderBy(sortBy, sortOrder), { id: "desc" }],
-    select: {
-      id: true,
-      subject: true,
-      status: true,
-      category: true,
-      createdAt: true,
-      customer: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
+  const [tickets, total] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      orderBy: [getTicketOrderBy(sortBy, sortOrder), { id: "desc" }],
+      select: {
+        id: true,
+        subject: true,
+        status: true,
+        category: true,
+        createdAt: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
         },
       },
-    },
-    where,
-  });
+      skip,
+      take: pageSize,
+      where,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
 
-  res.json({ tickets });
+  res.json({
+    meta: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+    tickets,
+  });
 });

@@ -5,6 +5,7 @@ import {
   TicketStatus,
   type TicketListItem,
   type TicketListQuery,
+  type TicketListMeta,
   type TicketSortField,
   type TicketSortOrder,
 } from "core/email";
@@ -12,7 +13,6 @@ import { SearchIcon, XIcon } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 
 import { TicketsTable } from "@/components/tickets/TicketsTable";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiClient } from "../lib/api-client";
 
 type TicketsResponse = {
+  meta: TicketListMeta;
   tickets: TicketListItem[];
 };
 
@@ -40,6 +41,7 @@ const defaultFilters: TicketFilters = {
   q: undefined,
   status: undefined,
 };
+const pageSize = 10;
 
 function TicketsTableSkeleton() {
   return (
@@ -82,10 +84,13 @@ function getTicketsErrorMessage(error: unknown) {
 export function TicketsPage() {
   const [sorting, setSorting] = useState<TicketSorting>(defaultSorting);
   const [filters, setFilters] = useState<TicketFilters>(defaultFilters);
+  const [page, setPage] = useState(1);
   const deferredKeyword = useDeferredValue(filters.q ?? "");
   const { data, isFetching, isPending, isError, error } = useQuery({
     queryKey: [
       "tickets",
+      page,
+      pageSize,
       sorting.sortBy,
       sorting.sortOrder,
       deferredKeyword,
@@ -96,6 +101,8 @@ export function TicketsPage() {
       const response = await apiClient.get<TicketsResponse>("/api/tickets", {
         params: {
           category: filters.category,
+          page,
+          pageSize,
           q: deferredKeyword || undefined,
           status: filters.status,
           sortBy: sorting.sortBy,
@@ -111,8 +118,10 @@ export function TicketsPage() {
   }
 
   const tickets = data?.tickets ?? [];
+  const meta = data?.meta ?? { page, pageSize, total: 0, totalPages: 1 };
   const hasActiveFilters = Boolean(filters.category || filters.status || filters.q?.trim());
   const handleSortingChange = (sortBy: TicketSortField) => {
+    setPage(1);
     setSorting((current) => {
       if (current.sortBy !== sortBy) {
         return {
@@ -128,47 +137,41 @@ export function TicketsPage() {
     });
   };
   const handleKeywordChange = (value: string) => {
+    setPage(1);
     setFilters((current) => ({
       ...current,
       q: value || undefined,
     }));
   };
   const handleStatusChange = (value: string) => {
+    setPage(1);
     setFilters((current) => ({
       ...current,
       status: value === "all" ? undefined : (value as TicketStatus),
     }));
   };
   const handleCategoryChange = (value: string) => {
+    setPage(1);
     setFilters((current) => ({
       ...current,
       category: value === "all" ? undefined : (value as TicketCategory),
     }));
   };
   const resetFilters = () => {
+    setPage(1);
     setFilters(defaultFilters);
   };
 
   return (
     <section className="grid gap-6">
       <div className="grid gap-6">
-        <div className="border-b border-border/70 pb-5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
-            <Badge className="w-fit uppercase" variant="secondary">
-              Inbox
-            </Badge>
-            <h2 className="text-[1.55rem] font-semibold tracking-[-0.04em] text-foreground">Tickets</h2>
-            <p className="text-[0.95rem] leading-6 text-muted-foreground">
-              查看所有由邮件创建的工单，默认按最新创建时间优先排序。
-            </p>
-          </div>
-        </div>
-
         <div className="grid gap-4">
           <div className="grid gap-4 pb-4">
             <div className="flex flex-col gap-1">
               <h3 className="text-lg font-semibold tracking-tight text-foreground">工单列表</h3>
-              <p className="text-sm text-muted-foreground">当前共 {tickets.length} 个工单</p>
+              <p className="text-sm text-muted-foreground">
+                当前共 {meta.total} 个工单，第 {meta.page} / {meta.totalPages} 页
+              </p>
             </div>
 
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_180px_180px_auto]">
@@ -244,13 +247,57 @@ export function TicketsPage() {
               暂无工单数据。
             </div>
           ) : (
-            <div className="border-t border-border/70">
+            <div className="grid gap-4 border-t border-border/70 pt-4">
               <TicketsTable
                 isSortingPending={isFetching}
                 onSortingChange={handleSortingChange}
                 sorting={sorting}
                 tickets={tickets}
               />
+
+              <div className="flex flex-col gap-3 border-t border-border/70 pt-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                <p>
+                  显示第 {(meta.page - 1) * meta.pageSize + 1} -{" "}
+                  {Math.min(meta.page * meta.pageSize, meta.total)} 条，共 {meta.total} 条
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    disabled={meta.page <= 1 || isFetching}
+                    onClick={() => setPage(1)}
+                    type="button"
+                    variant="outline"
+                  >
+                    {"<<"}
+                  </Button>
+                  <Button
+                    disabled={meta.page <= 1 || isFetching}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    type="button"
+                    variant="outline"
+                  >
+                    {"<"}
+                  </Button>
+                  <span className="min-w-20 text-center text-sm text-foreground">
+                    第 {meta.page} / {meta.totalPages} 页
+                  </span>
+                  <Button
+                    disabled={meta.page >= meta.totalPages || isFetching}
+                    onClick={() => setPage((current) => current + 1)}
+                    type="button"
+                    variant="outline"
+                  >
+                    {">"}
+                  </Button>
+                  <Button
+                    disabled={meta.page >= meta.totalPages || isFetching}
+                    onClick={() => setPage(meta.totalPages)}
+                    type="button"
+                    variant="outline"
+                  >
+                    {">>"}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

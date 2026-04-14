@@ -1,4 +1,4 @@
-import { TicketCategory, TicketStatus, type TicketListItem } from "core/email";
+import { TicketCategory, TicketStatus, type TicketListItem, type TicketListMeta } from "core/email";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -13,6 +13,12 @@ vi.mock("../lib/api-client", () => ({
 }));
 
 const mockedApiClient = vi.mocked(apiClient);
+const defaultMeta: TicketListMeta = {
+  page: 1,
+  pageSize: 10,
+  total: 2,
+  totalPages: 1,
+};
 
 const ticketsBySortKey: Record<string, TicketListItem[]> = {
   "category:asc": [
@@ -174,8 +180,9 @@ const ticketsBySortKey: Record<string, TicketListItem[]> = {
 };
 
 const ticketsByQueryKey: Record<string, TicketListItem[]> = {
-  "category:all|q:|sortBy:createdAt|sortOrder:desc|status:all": ticketsBySortKey["createdAt:desc"],
-  "category:all|q:alice|sortBy:createdAt|sortOrder:desc|status:all": [
+  "category:all|page:1|pageSize:10|q:|sortBy:createdAt|sortOrder:desc|status:all":
+    ticketsBySortKey["createdAt:desc"],
+  "category:all|page:1|pageSize:10|q:alice|sortBy:createdAt|sortOrder:desc|status:all": [
     {
       id: 10,
       subject: "Ticket for Alice",
@@ -189,7 +196,7 @@ const ticketsByQueryKey: Record<string, TicketListItem[]> = {
       },
     },
   ],
-  "category:all|q:|sortBy:createdAt|sortOrder:desc|status:resolved": [
+  "category:all|page:1|pageSize:10|q:|sortBy:createdAt|sortOrder:desc|status:resolved": [
     {
       id: 11,
       subject: "Resolved ticket",
@@ -203,7 +210,7 @@ const ticketsByQueryKey: Record<string, TicketListItem[]> = {
       },
     },
   ],
-  "category:refund_request|q:|sortBy:createdAt|sortOrder:desc|status:all": [
+  "category:refund_request|page:1|pageSize:10|q:|sortBy:createdAt|sortOrder:desc|status:all": [
     {
       id: 12,
       subject: "Refund ticket",
@@ -224,11 +231,29 @@ function getQueryKey(config?: { params?: Record<string, unknown> }) {
 
   return [
     `category:${String(params.category ?? "all")}`,
+    `page:${String(params.page ?? 1)}`,
+    `pageSize:${String(params.pageSize ?? 10)}`,
     `q:${String(params.q ?? "")}`,
     `sortBy:${String(params.sortBy ?? "createdAt")}`,
     `sortOrder:${String(params.sortOrder ?? "desc")}`,
     `status:${String(params.status ?? "all")}`,
   ].join("|");
+}
+
+function createTicketsResponse(
+  tickets: TicketListItem[],
+  meta: Partial<TicketListMeta> = {},
+) {
+  return {
+    data: {
+      meta: {
+        ...defaultMeta,
+        total: tickets.length,
+        ...meta,
+      },
+      tickets,
+    },
+  };
 }
 
 describe("TicketsPage", () => {
@@ -242,7 +267,7 @@ describe("TicketsPage", () => {
     renderWithQuery(<TicketsPage />);
 
     expect(screen.getByText("工单列表")).toBeVisible();
-    expect(screen.getByText("当前共 0 个工单")).toBeVisible();
+    expect(screen.getByText("当前共 0 个工单，第 1 / 1 页")).toBeVisible();
   });
 
   test("renders an error state when the request fails", async () => {
@@ -257,6 +282,12 @@ describe("TicketsPage", () => {
   test("renders an empty state when there are no tickets", async () => {
     mockedApiClient.get.mockResolvedValue({
       data: {
+        meta: {
+          page: 1,
+          pageSize: 10,
+          total: 0,
+          totalPages: 1,
+        },
         tickets: [],
       },
     });
@@ -264,21 +295,17 @@ describe("TicketsPage", () => {
     renderWithQuery(<TicketsPage />);
 
     await screen.findByText("暂无工单数据。");
-    expect(screen.getByText("当前共 0 个工单")).toBeVisible();
+    expect(screen.getByText("当前共 0 个工单，第 1 / 1 页")).toBeVisible();
   });
 
   test("loads tickets with default createdAt desc sorting", async () => {
-    mockedApiClient.get.mockResolvedValue({
-      data: {
-        tickets: ticketsBySortKey["createdAt:desc"],
-      },
-    });
+    mockedApiClient.get.mockResolvedValue(createTicketsResponse(ticketsBySortKey["createdAt:desc"]));
 
     renderWithQuery(<TicketsPage />);
 
     await screen.findByText("Newest ticket");
 
-    expect(screen.getByText("当前共 2 个工单")).toBeVisible();
+    expect(screen.getByText("当前共 2 个工单，第 1 / 1 页")).toBeVisible();
     expect(screen.getByText("Customer Two")).toBeVisible();
     expect(screen.getByText("customer.two@example.com")).toBeVisible();
     expect(screen.getAllByText("Open").length).toBeGreaterThan(0);
@@ -293,6 +320,11 @@ describe("TicketsPage", () => {
     await waitFor(() => {
       expect(mockedApiClient.get).toHaveBeenCalledWith("/api/tickets", {
         params: {
+          category: undefined,
+          page: 1,
+          pageSize: 10,
+          q: undefined,
+          status: undefined,
           sortBy: "createdAt",
           sortOrder: "desc",
         },
@@ -305,11 +337,7 @@ describe("TicketsPage", () => {
       const sortBy = String(config?.params?.sortBy ?? "createdAt");
       const sortOrder = String(config?.params?.sortOrder ?? "desc");
 
-      return {
-        data: {
-          tickets: ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? [],
-        },
-      };
+      return createTicketsResponse(ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? []);
     });
 
     renderWithQuery(<TicketsPage />);
@@ -322,6 +350,11 @@ describe("TicketsPage", () => {
     await waitFor(() => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
+          category: undefined,
+          page: 1,
+          pageSize: 10,
+          q: undefined,
+          status: undefined,
           sortBy: "createdAt",
           sortOrder: "asc",
         },
@@ -337,6 +370,11 @@ describe("TicketsPage", () => {
     await waitFor(() => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
+          category: undefined,
+          page: 1,
+          pageSize: 10,
+          q: undefined,
+          status: undefined,
           sortBy: "createdAt",
           sortOrder: "desc",
         },
@@ -353,11 +391,7 @@ describe("TicketsPage", () => {
       const sortBy = String(config?.params?.sortBy ?? "createdAt");
       const sortOrder = String(config?.params?.sortOrder ?? "desc");
 
-      return {
-        data: {
-          tickets: ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? [],
-        },
-      };
+      return createTicketsResponse(ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? []);
     });
 
     renderWithQuery(<TicketsPage />);
@@ -368,6 +402,11 @@ describe("TicketsPage", () => {
     await screen.findByText("Alpha ticket");
     expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
       params: {
+        category: undefined,
+        page: 1,
+        pageSize: 10,
+        q: undefined,
+        status: undefined,
         sortBy: "subject",
         sortOrder: "asc",
       },
@@ -377,6 +416,11 @@ describe("TicketsPage", () => {
     await screen.findByText("Alice");
     expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
       params: {
+        category: undefined,
+        page: 1,
+        pageSize: 10,
+        q: undefined,
+        status: undefined,
         sortBy: "customer",
         sortOrder: "asc",
       },
@@ -386,6 +430,11 @@ describe("TicketsPage", () => {
     await screen.findByText("Closed first");
     expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
       params: {
+        category: undefined,
+        page: 1,
+        pageSize: 10,
+        q: undefined,
+        status: undefined,
         sortBy: "status",
         sortOrder: "asc",
       },
@@ -395,6 +444,11 @@ describe("TicketsPage", () => {
     await screen.findByText("Billing issue");
     expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
       params: {
+        category: undefined,
+        page: 1,
+        pageSize: 10,
+        q: undefined,
+        status: undefined,
         sortBy: "category",
         sortOrder: "asc",
       },
@@ -406,11 +460,7 @@ describe("TicketsPage", () => {
       const sortBy = String(config?.params?.sortBy ?? "createdAt");
       const sortOrder = String(config?.params?.sortOrder ?? "desc");
 
-      return {
-        data: {
-          tickets: ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? [],
-        },
-      };
+      return createTicketsResponse(ticketsBySortKey[`${sortBy}:${sortOrder}`] ?? []);
     });
 
     renderWithQuery(<TicketsPage />);
@@ -426,6 +476,11 @@ describe("TicketsPage", () => {
     await waitFor(() => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
+          category: undefined,
+          page: 1,
+          pageSize: 10,
+          q: undefined,
+          status: undefined,
           sortBy: "customer",
           sortOrder: "asc",
         },
@@ -439,11 +494,9 @@ describe("TicketsPage", () => {
 
   test("sends keyword, status, and category filters to the server", async () => {
     mockedApiClient.get.mockImplementation(async (_url, config) => {
-      return {
-        data: {
-          tickets: ticketsByQueryKey[getQueryKey(config)] ?? [],
-        },
-      };
+      return createTicketsResponse(ticketsByQueryKey[getQueryKey(config)] ?? [], {
+        total: (ticketsByQueryKey[getQueryKey(config)] ?? []).length,
+      });
     });
 
     renderWithQuery(<TicketsPage />);
@@ -459,6 +512,8 @@ describe("TicketsPage", () => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
           category: undefined,
+          page: 1,
+          pageSize: 10,
           q: "alice",
           sortBy: "createdAt",
           sortOrder: "desc",
@@ -470,7 +525,7 @@ describe("TicketsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "重置筛选" }));
     await screen.findByText("Newest ticket");
 
-    fireEvent.change(screen.getByDisplayValue("全部状态"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "状态" }), {
       target: { value: TicketStatus.resolved },
     });
 
@@ -479,6 +534,8 @@ describe("TicketsPage", () => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
           category: undefined,
+          page: 1,
+          pageSize: 10,
           q: undefined,
           sortBy: "createdAt",
           sortOrder: "desc",
@@ -490,7 +547,7 @@ describe("TicketsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "重置筛选" }));
     await screen.findByText("Newest ticket");
 
-    fireEvent.change(screen.getByDisplayValue("全部分类"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "分类" }), {
       target: { value: TicketCategory.refundRequest },
     });
 
@@ -499,6 +556,8 @@ describe("TicketsPage", () => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
           category: TicketCategory.refundRequest,
+          page: 1,
+          pageSize: 10,
           q: undefined,
           sortBy: "createdAt",
           sortOrder: "desc",
@@ -510,11 +569,9 @@ describe("TicketsPage", () => {
 
   test("clears filters and reloads the default query", async () => {
     mockedApiClient.get.mockImplementation(async (_url, config) => {
-      return {
-        data: {
-          tickets: ticketsByQueryKey[getQueryKey(config)] ?? [],
-        },
-      };
+      return createTicketsResponse(ticketsByQueryKey[getQueryKey(config)] ?? [], {
+        total: (ticketsByQueryKey[getQueryKey(config)] ?? []).length,
+      });
     });
 
     renderWithQuery(<TicketsPage />);
@@ -533,6 +590,152 @@ describe("TicketsPage", () => {
       expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
         params: {
           category: undefined,
+          page: 1,
+          pageSize: 10,
+          q: undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: undefined,
+        },
+      });
+    });
+  });
+
+  test("requests the next page from the server", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      const page = Number(config?.params?.page ?? 1);
+
+      if (page === 2) {
+        return createTicketsResponse(
+          [
+            {
+              id: 22,
+              subject: "Page two ticket",
+              status: TicketStatus.closed,
+              category: TicketCategory.general,
+              createdAt: "2026-04-14T12:00:00.000Z",
+              customer: {
+                id: 22,
+                name: "Page Two Customer",
+                email: "page.two@example.com",
+              },
+            },
+          ],
+          { page: 2, pageSize: 10, total: 21, totalPages: 3 },
+        );
+      }
+
+      return createTicketsResponse(ticketsBySortKey["createdAt:desc"], {
+        page: 1,
+        pageSize: 10,
+        total: 21,
+        totalPages: 3,
+      });
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+    fireEvent.click(screen.getByRole("button", { name: ">" }));
+
+    await screen.findByText("Page two ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: undefined,
+          page: 2,
+          pageSize: 10,
+          q: undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: undefined,
+        },
+      });
+    });
+
+    expect(screen.getByText("当前共 21 个工单，第 2 / 3 页")).toBeVisible();
+  });
+
+  test("jumps to the first and last page from pagination controls", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      const page = Number(config?.params?.page ?? 1);
+
+      if (page === 3) {
+        return createTicketsResponse(
+          [
+            {
+              id: 33,
+              subject: "Last page ticket",
+              status: TicketStatus.closed,
+              category: TicketCategory.general,
+              createdAt: "2026-04-14T11:00:00.000Z",
+              customer: {
+                id: 33,
+                name: "Last Page Customer",
+                email: "last.page@example.com",
+              },
+            },
+          ],
+          { page: 3, pageSize: 10, total: 21, totalPages: 3 },
+        );
+      }
+
+      if (page === 2) {
+        return createTicketsResponse(
+          [
+            {
+              id: 22,
+              subject: "Middle page ticket",
+              status: TicketStatus.open,
+              category: TicketCategory.technical,
+              createdAt: "2026-04-14T12:00:00.000Z",
+              customer: {
+                id: 22,
+                name: "Middle Page Customer",
+                email: "middle.page@example.com",
+              },
+            },
+          ],
+          { page: 2, pageSize: 10, total: 21, totalPages: 3 },
+        );
+      }
+
+      return createTicketsResponse(ticketsBySortKey["createdAt:desc"], {
+        page: 1,
+        pageSize: 10,
+        total: 21,
+        totalPages: 3,
+      });
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+
+    fireEvent.click(screen.getByRole("button", { name: ">>" }));
+    await screen.findByText("Last page ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: undefined,
+          page: 3,
+          pageSize: 10,
+          q: undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: undefined,
+        },
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "<<" }));
+    await screen.findByText("Newest ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: undefined,
+          page: 1,
+          pageSize: 10,
           q: undefined,
           sortBy: "createdAt",
           sortOrder: "desc",
