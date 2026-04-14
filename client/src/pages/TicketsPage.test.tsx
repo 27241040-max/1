@@ -173,6 +173,64 @@ const ticketsBySortKey: Record<string, TicketListItem[]> = {
   ],
 };
 
+const ticketsByQueryKey: Record<string, TicketListItem[]> = {
+  "category:all|q:|sortBy:createdAt|sortOrder:desc|status:all": ticketsBySortKey["createdAt:desc"],
+  "category:all|q:alice|sortBy:createdAt|sortOrder:desc|status:all": [
+    {
+      id: 10,
+      subject: "Ticket for Alice",
+      status: TicketStatus.open,
+      category: TicketCategory.general,
+      createdAt: "2026-04-14T16:00:00.000Z",
+      customer: {
+        id: 10,
+        name: "Alice",
+        email: "alice@example.com",
+      },
+    },
+  ],
+  "category:all|q:|sortBy:createdAt|sortOrder:desc|status:resolved": [
+    {
+      id: 11,
+      subject: "Resolved ticket",
+      status: TicketStatus.resolved,
+      category: TicketCategory.technical,
+      createdAt: "2026-04-14T15:00:00.000Z",
+      customer: {
+        id: 11,
+        name: "Riley",
+        email: "riley@example.com",
+      },
+    },
+  ],
+  "category:refund_request|q:|sortBy:createdAt|sortOrder:desc|status:all": [
+    {
+      id: 12,
+      subject: "Refund ticket",
+      status: TicketStatus.open,
+      category: TicketCategory.refundRequest,
+      createdAt: "2026-04-14T14:30:00.000Z",
+      customer: {
+        id: 12,
+        name: "Taylor",
+        email: "taylor@example.com",
+      },
+    },
+  ],
+};
+
+function getQueryKey(config?: { params?: Record<string, unknown> }) {
+  const params = config?.params ?? {};
+
+  return [
+    `category:${String(params.category ?? "all")}`,
+    `q:${String(params.q ?? "")}`,
+    `sortBy:${String(params.sortBy ?? "createdAt")}`,
+    `sortOrder:${String(params.sortOrder ?? "desc")}`,
+    `status:${String(params.status ?? "all")}`,
+  ].join("|");
+}
+
 describe("TicketsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -223,9 +281,9 @@ describe("TicketsPage", () => {
     expect(screen.getByText("当前共 2 个工单")).toBeVisible();
     expect(screen.getByText("Customer Two")).toBeVisible();
     expect(screen.getByText("customer.two@example.com")).toBeVisible();
-    expect(screen.getByText("Open")).toBeVisible();
-    expect(screen.getByText("Resolved")).toBeVisible();
-    expect(screen.getByText("Technical")).toBeVisible();
+    expect(screen.getAllByText("Open").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Resolved").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Technical").length).toBeGreaterThan(0);
     expect(screen.getByText("未分类")).toBeVisible();
 
     const rows = screen.getAllByRole("row");
@@ -377,5 +435,110 @@ describe("TicketsPage", () => {
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent("Alice");
     expect(rows[2]).toHaveTextContent("Bob");
+  });
+
+  test("sends keyword, status, and category filters to the server", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      return {
+        data: {
+          tickets: ticketsByQueryKey[getQueryKey(config)] ?? [],
+        },
+      };
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+
+    fireEvent.change(screen.getByPlaceholderText("搜索主题、客户名或邮箱"), {
+      target: { value: "alice" },
+    });
+
+    await screen.findByText("Ticket for Alice");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: undefined,
+          q: "alice",
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: undefined,
+        },
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "重置筛选" }));
+    await screen.findByText("Newest ticket");
+
+    fireEvent.change(screen.getByDisplayValue("全部状态"), {
+      target: { value: TicketStatus.resolved },
+    });
+
+    await screen.findByText("Resolved ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: undefined,
+          q: undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: TicketStatus.resolved,
+        },
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "重置筛选" }));
+    await screen.findByText("Newest ticket");
+
+    fireEvent.change(screen.getByDisplayValue("全部分类"), {
+      target: { value: TicketCategory.refundRequest },
+    });
+
+    await screen.findByText("Refund ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: TicketCategory.refundRequest,
+          q: undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: undefined,
+        },
+      });
+    });
+  });
+
+  test("clears filters and reloads the default query", async () => {
+    mockedApiClient.get.mockImplementation(async (_url, config) => {
+      return {
+        data: {
+          tickets: ticketsByQueryKey[getQueryKey(config)] ?? [],
+        },
+      };
+    });
+
+    renderWithQuery(<TicketsPage />);
+
+    await screen.findByText("Newest ticket");
+
+    fireEvent.change(screen.getByPlaceholderText("搜索主题、客户名或邮箱"), {
+      target: { value: "alice" },
+    });
+    await screen.findByText("Ticket for Alice");
+
+    fireEvent.click(screen.getByRole("button", { name: "重置筛选" }));
+
+    await screen.findByText("Newest ticket");
+    await waitFor(() => {
+      expect(mockedApiClient.get).toHaveBeenLastCalledWith("/api/tickets", {
+        params: {
+          category: undefined,
+          q: undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          status: undefined,
+        },
+      });
+    });
   });
 });

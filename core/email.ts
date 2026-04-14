@@ -22,7 +22,22 @@ export const ticketSortFieldSchema = z.enum([
 
 export const ticketSortOrderSchema = z.enum(["asc", "desc"]);
 
+const optionalTrimmedStringSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+
+    const trimmedValue = value.trim();
+    return trimmedValue === "" ? undefined : trimmedValue;
+  },
+  z.string().min(1).optional(),
+);
+
 export const ticketListQuerySchema = z.object({
+  category: z.nativeEnum(TicketCategory).optional(),
+  q: optionalTrimmedStringSchema,
+  status: z.nativeEnum(TicketStatus).optional(),
   sortBy: ticketSortFieldSchema.optional(),
   sortOrder: ticketSortOrderSchema.optional(),
 });

@@ -37,6 +37,38 @@ ticketsRouter.get("/", async (req, res) => {
     return;
   }
 
+  const where: Prisma.TicketWhereInput = {
+    ...(result.data.status ? { status: result.data.status } : {}),
+    ...(result.data.category ? { category: result.data.category } : {}),
+    ...(result.data.q
+      ? {
+          OR: [
+            {
+              subject: {
+                contains: result.data.q,
+                mode: "insensitive",
+              },
+            },
+            {
+              customer: {
+                email: {
+                  contains: result.data.q,
+                  mode: "insensitive",
+                },
+              },
+            },
+            {
+              customer: {
+                name: {
+                  contains: result.data.q,
+                  mode: "insensitive",
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
   const sortBy = result.data.sortBy ?? "createdAt";
   const sortOrder = result.data.sortOrder ?? "desc";
   const tickets = await prisma.ticket.findMany({
@@ -55,6 +87,7 @@ ticketsRouter.get("/", async (req, res) => {
         },
       },
     },
+    where,
   });
 
   res.json({ tickets });

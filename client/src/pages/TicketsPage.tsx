@@ -1,14 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
+  TicketCategory,
+  TicketStatus,
   type TicketListItem,
+  type TicketListQuery,
   type TicketSortField,
   type TicketSortOrder,
 } from "core/email";
-import { useState } from "react";
+import { SearchIcon, XIcon } from "lucide-react";
+import { useDeferredValue, useState } from "react";
 
 import { TicketsTable } from "@/components/tickets/TicketsTable";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { apiClient } from "../lib/api-client";
@@ -22,22 +28,18 @@ type TicketSorting = {
   sortOrder: TicketSortOrder;
 };
 
+type TicketFilters = Pick<TicketListQuery, "category" | "q" | "status">;
+
 const defaultSorting: TicketSorting = {
   sortBy: "createdAt",
   sortOrder: "desc",
 };
 
-function getSortingSummary({ sortBy, sortOrder }: TicketSorting) {
-  const fieldLabelMap: Record<TicketSortField, string> = {
-    category: "分类",
-    createdAt: "创建时间",
-    customer: "客户",
-    status: "状态",
-    subject: "主题",
-  };
-
-  return `当前按${fieldLabelMap[sortBy]}${sortOrder === "asc" ? "升序" : "降序"}排序`;
-}
+const defaultFilters: TicketFilters = {
+  category: undefined,
+  q: undefined,
+  status: undefined,
+};
 
 function TicketsTableSkeleton() {
   return (
@@ -79,11 +81,23 @@ function getTicketsErrorMessage(error: unknown) {
 
 export function TicketsPage() {
   const [sorting, setSorting] = useState<TicketSorting>(defaultSorting);
+  const [filters, setFilters] = useState<TicketFilters>(defaultFilters);
+  const deferredKeyword = useDeferredValue(filters.q ?? "");
   const { data, isFetching, isPending, isError, error } = useQuery({
-    queryKey: ["tickets", sorting.sortBy, sorting.sortOrder],
+    queryKey: [
+      "tickets",
+      sorting.sortBy,
+      sorting.sortOrder,
+      deferredKeyword,
+      filters.status ?? "",
+      filters.category ?? "",
+    ],
     queryFn: async () => {
       const response = await apiClient.get<TicketsResponse>("/api/tickets", {
         params: {
+          category: filters.category,
+          q: deferredKeyword || undefined,
+          status: filters.status,
           sortBy: sorting.sortBy,
           sortOrder: sorting.sortOrder,
         },
@@ -97,6 +111,7 @@ export function TicketsPage() {
   }
 
   const tickets = data?.tickets ?? [];
+  const hasActiveFilters = Boolean(filters.category || filters.status || filters.q?.trim());
   const handleSortingChange = (sortBy: TicketSortField) => {
     setSorting((current) => {
       if (current.sortBy !== sortBy) {
@@ -111,6 +126,27 @@ export function TicketsPage() {
         sortOrder: current.sortOrder === "asc" ? "desc" : "asc",
       };
     });
+  };
+  const handleKeywordChange = (value: string) => {
+    setFilters((current) => ({
+      ...current,
+      q: value || undefined,
+    }));
+  };
+  const handleStatusChange = (value: string) => {
+    setFilters((current) => ({
+      ...current,
+      status: value === "all" ? undefined : (value as TicketStatus),
+    }));
+  };
+  const handleCategoryChange = (value: string) => {
+    setFilters((current) => ({
+      ...current,
+      category: value === "all" ? undefined : (value as TicketCategory),
+    }));
+  };
+  const resetFilters = () => {
+    setFilters(defaultFilters);
   };
 
   return (
@@ -129,10 +165,72 @@ export function TicketsPage() {
         </div>
 
         <div className="grid gap-4">
-          <div>
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">工单列表</h3>
-            <p className="mt-1 text-sm text-muted-foreground">当前共 {tickets.length} 个工单</p>
-            <p className="mt-1 text-sm text-muted-foreground">{getSortingSummary(sorting)}</p>
+          <div className="grid gap-4 pb-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-lg font-semibold tracking-tight text-foreground">工单列表</h3>
+              <p className="text-sm text-muted-foreground">当前共 {tickets.length} 个工单</p>
+            </div>
+
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_180px_180px_auto]">
+              <label className="grid gap-1.5 text-sm text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                  关键词
+                </span>
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="h-10 rounded-xl border-border/80 bg-background pl-9 shadow-sm"
+                    onChange={(event) => handleKeywordChange(event.target.value)}
+                    placeholder="搜索主题、客户名或邮箱"
+                    type="search"
+                    value={filters.q ?? ""}
+                  />
+                </div>
+              </label>
+
+              <label className="grid gap-1.5 text-sm text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                  状态
+                </span>
+                <select
+                  className="h-10 rounded-xl border border-border/80 bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                  onChange={(event) => handleStatusChange(event.target.value)}
+                  value={filters.status ?? "all"}
+                >
+                  <option value="all">全部状态</option>
+                  <option value={TicketStatus.open}>Open</option>
+                  <option value={TicketStatus.resolved}>Resolved</option>
+                  <option value={TicketStatus.closed}>Closed</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1.5 text-sm text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                  分类
+                </span>
+                <select
+                  className="h-10 rounded-xl border border-border/80 bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                  onChange={(event) => handleCategoryChange(event.target.value)}
+                  value={filters.category ?? "all"}
+                >
+                  <option value="all">全部分类</option>
+                  <option value={TicketCategory.general}>General</option>
+                  <option value={TicketCategory.technical}>Technical</option>
+                  <option value={TicketCategory.refundRequest}>Refund Request</option>
+                </select>
+              </label>
+
+              <Button
+                className="h-10 self-end rounded-xl px-3"
+                disabled={!hasActiveFilters}
+                onClick={resetFilters}
+                type="button"
+                variant="outline"
+              >
+                <XIcon className="size-4" />
+                重置筛选
+              </Button>
+            </div>
           </div>
 
           {isPending ? (
