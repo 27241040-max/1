@@ -49,12 +49,28 @@ model Ticket {
   assignedUserId    String?
   customer          Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
   assignedUser      User?           @relation("AssignedTickets", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  replies           TicketReply[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
   @@index([assignedUserId])
   @@index([customerId])
   @@map("ticket")
+}
+
+model TicketReply {
+  id           Int      @id @default(autoincrement())
+  ticketId      Int
+  authorUserId  String
+  bodyText      String
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author        User     @relation("TicketReplyAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([authorUserId])
+  @@index([ticketId])
+  @@map("ticket_reply")
 }
 
 model User {
@@ -73,7 +89,8 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
-  assignedTickets Ticket[] @relation("AssignedTickets")
+  assignedTickets Ticket[]      @relation("AssignedTickets")
+  ticketReplies   TicketReply[] @relation("TicketReplyAuthor")
 
   @@map("user")
 }

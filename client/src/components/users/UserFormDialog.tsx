@@ -1,10 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput } from "core/users";
-import { AlertCircleIcon, LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ErrorAlert } from "@/components/ui/error-alert";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -107,7 +108,7 @@ export function UserFormDialog({
               placeholder="请输入姓名"
               {...register("name")}
             />
-            {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+            {errors.name ? <ErrorMessage>{errors.name.message}</ErrorMessage> : null}
           </div>
 
           <div className="grid gap-2">
@@ -121,7 +122,7 @@ export function UserFormDialog({
               type="email"
               {...register("email")}
             />
-            {errors.email ? <p className="text-sm text-destructive">{errors.email.message}</p> : null}
+            {errors.email ? <ErrorMessage>{errors.email.message}</ErrorMessage> : null}
           </div>
 
           <div className="grid gap-2">
@@ -136,18 +137,17 @@ export function UserFormDialog({
               {...register("password")}
             />
             {errors.password ? (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
+              <ErrorMessage>{errors.password.message}</ErrorMessage>
             ) : copy.passwordDescription ? (
               <p className="text-sm text-muted-foreground">{copy.passwordDescription}</p>
             ) : null}
           </div>
 
           {errorMessage ? (
-            <Alert variant="destructive">
-              <AlertCircleIcon className="size-4" />
-              <AlertTitle>{mode === "edit" ? "保存失败" : "创建失败"}</AlertTitle>
-              <AlertDescription>{errorMessage}</AlertDescription>
-            </Alert>
+            <ErrorAlert
+              message={errorMessage}
+              title={mode === "edit" ? "保存失败" : "创建失败"}
+            />
           ) : null}
 
           <DialogFooter>

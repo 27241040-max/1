@@ -10,6 +10,7 @@ import { TicketDetailPage } from "./TicketDetailPage";
 vi.mock("../lib/api-client", () => ({
   apiClient: {
     get: vi.fn(),
+    post: vi.fn(),
     patch: vi.fn(),
   },
 }));
@@ -43,6 +44,19 @@ const ticketDetail: TicketDetail = {
     name: "Taylor",
   },
   id: 7,
+  replies: [
+    {
+      author: {
+        email: "agent@example.com",
+        id: "user_1",
+        name: "Agent Smith",
+      },
+      bodyText: "We have reviewed your refund request and will follow up within one business day.",
+      createdAt: "2026-04-14T10:00:00.000Z",
+      id: 101,
+      updatedAt: "2026-04-14T10:00:00.000Z",
+    },
+  ],
   source: "inbound_email",
   status: TicketStatus.open,
   subject: "Refund request follow-up",
@@ -93,6 +107,11 @@ describe("TicketDetailPage", () => {
     expect(screen.getByRole("combobox", { name: "类别" })).toHaveTextContent("Refund Request");
     expect(screen.getByText("正文")).toBeVisible();
     expect(screen.getByText("来自 Taylor")).toBeVisible();
+    expect(screen.getByText("回复线程")).toBeVisible();
+    expect(
+      screen.getByText("We have reviewed your refund request and will follow up within one business day."),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "提交回复" })).toBeVisible();
     expect(screen.getByRole("link", { name: "返回工单列表" })).toHaveAttribute("href", "/tickets");
     expect(mockedApiClient.get).toHaveBeenCalledWith("/api/tickets/7");
   });
@@ -151,6 +170,7 @@ describe("TicketDetailPage", () => {
             ...ticketDetail,
             assignedUser: null,
             category: null,
+            replies: [],
           } satisfies TicketDetail,
         };
       }
@@ -169,6 +189,7 @@ describe("TicketDetailPage", () => {
     });
     expect(screen.getByRole("combobox", { name: "指派给" })).toHaveTextContent("未指派");
     expect(screen.getByText("未分类")).toBeVisible();
+    expect(screen.getByText("暂无回复")).toBeVisible();
   });
 
   test("assigns the ticket to a different agent", async () => {
@@ -276,5 +297,117 @@ describe("TicketDetailPage", () => {
       });
     });
     expect(screen.getByRole("combobox", { name: "类别" })).toHaveTextContent("Technical");
+  });
+
+  test("submits a new reply and clears the form", async () => {
+    mockedApiClient.get.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7") {
+        return { data: ticketDetail };
+      }
+
+      if (url === "/api/agents") {
+        return { data: { agents } };
+      }
+
+      throw new Error(`Unhandled GET ${url}`);
+    });
+    mockedApiClient.post.mockResolvedValue({
+      data: {
+        ...ticketDetail,
+        replies: [
+          ...ticketDetail.replies,
+          {
+            author: {
+              email: "taylor.agent@example.com",
+              id: "user_2",
+              name: "Taylor Agent",
+            },
+            bodyText: "Thanks for your patience. I have escalated this and will update you tomorrow.",
+            createdAt: "2026-04-14T11:00:00.000Z",
+            id: 102,
+            updatedAt: "2026-04-14T11:00:00.000Z",
+          },
+        ],
+      } satisfies TicketDetail,
+    });
+
+    renderTicketDetailPage();
+
+    await screen.findByText("Refund request follow-up");
+
+    fireEvent.change(screen.getByLabelText("回复内容"), {
+      target: { value: "Thanks for your patience. I have escalated this and will update you tomorrow." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "提交回复" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.post).toHaveBeenCalledWith("/api/tickets/7/replies", {
+        bodyText: "Thanks for your patience. I have escalated this and will update you tomorrow.",
+      });
+    });
+    expect(
+      await screen.findByText(
+        "Thanks for your patience. I have escalated this and will update you tomorrow.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByLabelText("回复内容")).toHaveValue("");
+  });
+
+  test("blocks empty replies with client-side validation", async () => {
+    mockedApiClient.get.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7") {
+        return { data: ticketDetail };
+      }
+
+      if (url === "/api/agents") {
+        return { data: { agents } };
+      }
+
+      throw new Error(`Unhandled GET ${url}`);
+    });
+
+    renderTicketDetailPage();
+
+    await screen.findByText("Refund request follow-up");
+
+    fireEvent.change(screen.getByLabelText("回复内容"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "提交回复" }));
+
+    expect(await screen.findByText("回复内容不能为空。")).toBeVisible();
+    expect(mockedApiClient.post).not.toHaveBeenCalled();
+  });
+
+  test("shows reply submission errors without clearing the input", async () => {
+    mockedApiClient.get.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7") {
+        return { data: ticketDetail };
+      }
+
+      if (url === "/api/agents") {
+        return { data: { agents } };
+      }
+
+      throw new Error(`Unhandled GET ${url}`);
+    });
+    mockedApiClient.post.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          error: "提交回复失败，请稍后再试。",
+        },
+      },
+    });
+
+    renderTicketDetailPage();
+
+    await screen.findByText("Refund request follow-up");
+
+    fireEvent.change(screen.getByLabelText("回复内容"), {
+      target: { value: "I am still working on your ticket." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "提交回复" }));
+
+    expect(await screen.findByText("提交回复失败，请稍后再试。")).toBeVisible();
+    expect(screen.getByLabelText("回复内容")).toHaveValue("I am still working on your ticket.");
   });
 });

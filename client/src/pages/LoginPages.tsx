@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  AlertCircleIcon,
   LoaderCircleIcon,
   LockKeyholeIcon,
   MailIcon,
@@ -10,7 +9,6 @@ import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router";
 import { z } from "zod";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,6 +18,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ErrorAlert } from "@/components/ui/error-alert";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -154,7 +154,7 @@ export function LoginPages() {
                     />
                   </div>
                   {errors.email ? (
-                    <p className="text-sm text-destructive">{errors.email.message}</p>
+                    <ErrorMessage>{errors.email.message}</ErrorMessage>
                   ) : null}
                 </div>
 
@@ -173,16 +173,12 @@ export function LoginPages() {
                     />
                   </div>
                   {errors.password ? (
-                    <p className="text-sm text-destructive">{errors.password.message}</p>
+                    <ErrorMessage>{errors.password.message}</ErrorMessage>
                   ) : null}
                 </div>
 
                 {errors.root?.message ? (
-                  <Alert variant="destructive">
-                    <AlertCircleIcon className="size-4" />
-                    <AlertTitle>登录失败</AlertTitle>
-                    <AlertDescription>{errors.root.message}</AlertDescription>
-                  </Alert>
+                  <ErrorAlert message={errors.root.message} title="登录失败" />
                 ) : null}
 
                 <Button className="h-11 w-full" disabled={isSubmitting} type="submit">

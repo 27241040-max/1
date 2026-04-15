@@ -1,6 +1,7 @@
 import {
   ticketAssignmentSchema,
   ticketListQuerySchema,
+  ticketReplyCreateSchema,
   ticketUpdateSchema,
   type TicketSortField,
   type TicketSortOrder,
@@ -8,6 +9,7 @@ import {
 import { Router } from "express";
 
 import { Prisma } from "../generated/prisma";
+import { parsePositiveIntParam } from "../lib/route-params";
 import { getIssueMessage } from "../lib/validation";
 
 import { requireAuth } from "../middleware/require-auth";
@@ -38,6 +40,22 @@ const ticketDetailSelect = {
       id: true,
       name: true,
       email: true,
+    },
+  },
+  replies: {
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      bodyText: true,
+      createdAt: true,
+      updatedAt: true,
+      author: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
     },
   },
 } satisfies Prisma.TicketSelect;
@@ -141,9 +159,9 @@ ticketsRouter.get("/", async (req, res) => {
 });
 
 ticketsRouter.get("/:id", async (req, res) => {
-  const ticketId = Number.parseInt(req.params.id, 10);
+  const ticketId = parsePositiveIntParam(req.params.id);
 
-  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+  if (!ticketId) {
     res.status(400).json({ error: "工单 ID 无效。" });
     return;
   }
@@ -162,9 +180,9 @@ ticketsRouter.get("/:id", async (req, res) => {
 });
 
 ticketsRouter.patch("/:id", async (req, res) => {
-  const ticketId = Number.parseInt(req.params.id, 10);
+  const ticketId = parsePositiveIntParam(req.params.id);
 
-  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+  if (!ticketId) {
     res.status(400).json({ error: "工单 ID 无效。" });
     return;
   }
@@ -199,9 +217,9 @@ ticketsRouter.patch("/:id", async (req, res) => {
 });
 
 ticketsRouter.patch("/:id/assignment", async (req, res) => {
-  const ticketId = Number.parseInt(req.params.id, 10);
+  const ticketId = parsePositiveIntParam(req.params.id);
 
-  if (!Number.isInteger(ticketId) || ticketId <= 0) {
+  if (!ticketId) {
     res.status(400).json({ error: "工单 ID 无效。" });
     return;
   }
@@ -244,6 +262,54 @@ ticketsRouter.patch("/:id/assignment", async (req, res) => {
     data: {
       assignedUserId: result.data.assignedUserId,
     },
+    select: ticketDetailSelect,
+  });
+
+  res.json(updatedTicket);
+});
+
+ticketsRouter.post("/:id/replies", async (req, res) => {
+  const ticketId = parsePositiveIntParam(req.params.id);
+
+  if (!ticketId) {
+    res.status(400).json({ error: "工单 ID 无效。" });
+    return;
+  }
+
+  const result = ticketReplyCreateSchema.safeParse(req.body ?? {});
+
+  if (!result.success) {
+    res.status(400).json({ error: getIssueMessage(result.error) });
+    return;
+  }
+
+  const userId = req.user?.id;
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "工单不存在。" });
+    return;
+  }
+
+  await prisma.ticketReply.create({
+    data: {
+      ticketId,
+      authorUserId: userId,
+      bodyText: result.data.bodyText,
+    },
+  });
+
+  const updatedTicket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
     select: ticketDetailSelect,
   });
 

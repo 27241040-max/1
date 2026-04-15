@@ -1,6 +1,5 @@
 import { AlertTriangleIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ErrorAlert } from "@/components/ui/error-alert";
 
 type DeleteUserDialogProps = {
   error?: string;
@@ -39,11 +39,7 @@ export function DeleteUserDialog({
         </DialogHeader>
 
         {error ? (
-          <Alert variant="destructive">
-            <AlertTriangleIcon className="size-4" />
-            <AlertTitle>删除失败</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert icon={AlertTriangleIcon} message={error} title="删除失败" />
         ) : null}
 
         <DialogFooter>

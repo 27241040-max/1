@@ -11,8 +11,11 @@
 - 前端数据请求默认约定：优先使用 `axios` 作为 HTTP 客户端，优先使用 `@tanstack/react-query` 管理服务端状态；表单、接口入参和其他结构化数据校验优先使用 `zod`；除非有明确理由，否则不要为常规数据获取继续新增裸 `fetch` 或手写 `useEffect + useState` 请求逻辑。
 - 前端组件/单元测试当前使用 `Vitest + React Testing Library + jsdom + jest-dom`，测试配置在 `client/vite.config.ts`。
 - 共享的 `zod` schema 优先定义在 `core` workspace 包中，再由 `client` 和 `server` 共同引用；避免在前后端重复定义同一份数据结构校验。
+- 前端如果只是展示表单字段错误或 mutation 的简短内联错误文案，优先复用 `client/src/components/ui/error-message.tsx` 中的 `ErrorMessage`，不要重复手写 `<p className="text-sm text-destructive">...</p>`；块级错误卡片仍继续使用 `Alert`。
+- 前端如果需要展示带标题和描述的 destructive 块级错误卡片，优先复用 `client/src/components/ui/error-alert.tsx` 中的 `ErrorAlert`，避免在页面或对话框里重复手写 `Alert + AlertTitle + AlertDescription` 组合；只有布局明显不同的场景再直接使用底层 `Alert`。
 - 客户端涉及角色值时，统一使用 `core/users` 中的 `UserRole` enum，包括路由守卫、按钮禁用逻辑和页面条件分支，避免硬编码 `"admin"` / `"agent"`。
 - 后续测试策略默认优先使用组件测试/单元测试；只有在跨页面真实浏览器流程、登录会话、导航串联或 webhook/集成链路确实需要验证时，才补充使用 e2e 测试。
+- 编写 e2e 时，避免重复覆盖已经被组件测试/单元测试充分验证的交互细节；e2e 只保留无法被单元测试替代的关键集成链路，例如认证后进入受保护页面、通过真实后端创建工单后在详情页提交回复并在刷新后确认数据持久化。
 
 ## 2. 认证与权限
 - 认证方案使用 Better Auth。
@@ -25,6 +28,7 @@
 - 服务端涉及角色值时，优先使用 Prisma 生成的 `UserRole` enum，避免直接硬编码 `"admin"` / `"agent"` 字面量。
 - 使用 Express 5 编写异步路由时，优先依赖其对 rejected promises 的自动错误传递，不要为常规 async handler 额外包一层 `try/catch`；需要统一映射错误响应时，放到全局 error middleware。
 - 服务端多个路由使用 `zod` 时，优先复用共享的验证辅助函数（例如从 `ZodError` 提取首条 issue 文案），不要在每个路由里重复写同样的错误拼装逻辑。
+- 服务端路由如果需要解析 `/:id` 这类正整数参数，优先复用 `server/src/lib/route-params.ts` 中的 `parsePositiveIntParam`，不要在路由文件里重复写 `parseInt + Number.isInteger + > 0`。
 - Better Auth 已禁用邮箱注册入口：`disabledPaths: ["/sign-up/email"]`，当前只支持已有账号登录。
 - Better Auth 速率限制已显式配置为仅在生产环境开启：`server/src/lib/auth.ts` 中 `rateLimit.enabled = process.env.NODE_ENV === "production"`。
 

@@ -53,6 +53,10 @@ export const ticketUpdateSchema = z.object({
   status: z.nativeEnum(TicketStatus),
 });
 
+export const ticketReplyCreateSchema = z.object({
+  bodyText: z.string().trim().min(1, "回复内容不能为空。"),
+});
+
 const emailSchema = z.string().trim().min(1, "请输入有效的邮箱地址").email("请输入有效的邮箱地址");
 
 export const inboundEmailSchema = z.object({
@@ -73,6 +77,7 @@ export type TicketSortOrder = z.infer<typeof ticketSortOrderSchema>;
 export type TicketListQuery = z.infer<typeof ticketListQuerySchema>;
 export type TicketAssignmentInput = z.infer<typeof ticketAssignmentSchema>;
 export type TicketUpdateInput = z.infer<typeof ticketUpdateSchema>;
+export type TicketReplyCreateInput = z.infer<typeof ticketReplyCreateSchema>;
 export type TicketListMeta = {
   page: number;
   pageSize: number;
@@ -108,9 +113,22 @@ export type TicketDetail = {
     name: string;
   };
   id: number;
+  replies: TicketReply[];
   source: string;
   status: TicketStatus;
   subject: string;
+  updatedAt: string;
+};
+
+export type TicketReply = {
+  author: {
+    email: string;
+    id: string;
+    name: string;
+  };
+  bodyText: string;
+  createdAt: string;
+  id: number;
   updatedAt: string;
 };
 
