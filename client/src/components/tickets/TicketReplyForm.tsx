@@ -1,6 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type TicketReplyCreateInput,
+  type TicketReplyPolishInput,
+  type TicketReplyPolishResult,
   ticketReplyCreateSchema,
 } from "core/email";
 import { useForm } from "react-hook-form";
@@ -12,19 +14,27 @@ import { Textarea } from "@/components/ui/textarea";
 
 type TicketReplyFormProps = {
   errorMessage?: string;
+  isPolishing: boolean;
   isSubmitting: boolean;
+  onPolish: (values: TicketReplyPolishInput) => Promise<TicketReplyPolishResult>;
   onSubmit: (values: TicketReplyCreateInput) => Promise<unknown>;
+  polishErrorMessage?: string;
 };
 
 export function TicketReplyForm({
   errorMessage,
+  isPolishing,
   isSubmitting,
+  onPolish,
   onSubmit,
+  polishErrorMessage,
 }: TicketReplyFormProps) {
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<TicketReplyCreateInput>({
     resolver: zodResolver(ticketReplyCreateSchema),
@@ -32,6 +42,11 @@ export function TicketReplyForm({
       bodyText: "",
     },
   });
+  const bodyText = watch("bodyText");
+  const isBusy = isSubmitting || isPolishing;
+  const hasReplyText = bodyText.trim().length > 0;
+  const canPolish = hasReplyText && !isBusy;
+  const canSubmit = hasReplyText && !isBusy;
 
   return (
     <form
@@ -51,17 +66,40 @@ export function TicketReplyForm({
         <Textarea
           id="ticket-reply-body"
           aria-invalid={errors.bodyText ? "true" : "false"}
-          disabled={isSubmitting}
+          disabled={isBusy}
           placeholder="输入要发送给客户的回复内容"
           {...register("bodyText")}
         />
         {errors.bodyText ? <ErrorMessage>{errors.bodyText.message}</ErrorMessage> : null}
       </div>
 
+      {polishErrorMessage ? <ErrorMessage>{polishErrorMessage}</ErrorMessage> : null}
       {errorMessage ? <ErrorMessage>{errorMessage}</ErrorMessage> : null}
 
-      <div>
-        <Button disabled={isSubmitting} type="submit">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          disabled={!canPolish}
+          onClick={() => {
+            void handleSubmit(async (values) => {
+              try {
+                const result = await onPolish(values);
+                setValue("bodyText", result.bodyText, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              } catch {
+                // Error state is surfaced through the parent component.
+              }
+            })();
+          }}
+          type="button"
+          variant="outline"
+        >
+          {isPolishing ? "Polishing..." : "Polish"}
+        </Button>
+
+        <Button disabled={!canSubmit} type="submit">
           {isSubmitting ? "提交中..." : "提交回复"}
         </Button>
       </div>

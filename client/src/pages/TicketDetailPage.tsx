@@ -5,6 +5,8 @@ import {
   type TicketAssignableAgent,
   type TicketCategory,
   type TicketDetail,
+  type TicketReplyPolishInput,
+  type TicketReplyPolishResult,
   TicketStatus,
   type TicketStatus as TicketStatusValue,
 } from "core/email";
@@ -63,6 +65,14 @@ function getTicketReplyErrorMessage(error: unknown) {
   }
 
   return "提交回复失败，请稍后再试。";
+}
+
+function getTicketReplyPolishErrorMessage(error: unknown) {
+  if (axios.isAxiosError<{ error?: string }>(error)) {
+    return error.response?.data?.error ?? "润色回复失败，请稍后再试。";
+  }
+
+  return "润色回复失败，请稍后再试。";
 }
 
 export function TicketDetailPage() {
@@ -129,6 +139,16 @@ export function TicketDetailPage() {
     },
   });
 
+  const ticketReplyPolishMutation = useMutation({
+    mutationFn: async (input: TicketReplyPolishInput) => {
+      const response = await apiClient.post<TicketReplyPolishResult>(
+        `/api/tickets/${ticketId}/replies/polish`,
+        input,
+      );
+      return response.data;
+    },
+  });
+
   if (isError) {
     console.error("工单详情加载失败:", error);
   }
@@ -166,7 +186,14 @@ export function TicketDetailPage() {
         <article className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_160px] lg:items-start lg:gap-8">
           <FormDetails
             data={data}
+            onPolish={ticketReplyPolishMutation.mutateAsync}
             onReplySubmit={ticketReplyMutation.mutateAsync}
+            polishErrorMessage={
+              ticketReplyPolishMutation.isError
+                ? getTicketReplyPolishErrorMessage(ticketReplyPolishMutation.error)
+                : undefined
+            }
+            polishIsSubmitting={ticketReplyPolishMutation.isPending}
             replyErrorMessage={
               ticketReplyMutation.isError
                 ? getTicketReplyErrorMessage(ticketReplyMutation.error)

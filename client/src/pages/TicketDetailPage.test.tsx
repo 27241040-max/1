@@ -111,6 +111,7 @@ describe("TicketDetailPage", () => {
     expect(
       screen.getByText("We have reviewed your refund request and will follow up within one business day."),
     ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Polish" })).toBeVisible();
     expect(screen.getByRole("button", { name: "提交回复" })).toBeVisible();
     expect(screen.getByRole("link", { name: "返回工单列表" })).toHaveAttribute("href", "/tickets");
     expect(mockedApiClient.get).toHaveBeenCalledWith("/api/tickets/7");
@@ -353,7 +354,55 @@ describe("TicketDetailPage", () => {
     expect(screen.getByLabelText("回复内容")).toHaveValue("");
   });
 
-  test("blocks empty replies with client-side validation", async () => {
+  test("polishes a reply draft and replaces the textarea value", async () => {
+    mockedApiClient.get.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7") {
+        return { data: ticketDetail };
+      }
+
+      if (url === "/api/agents") {
+        return { data: { agents } };
+      }
+
+      throw new Error(`Unhandled GET ${url}`);
+    });
+    mockedApiClient.post.mockImplementation(async (url, body) => {
+      if (url === "/api/tickets/7/replies/polish") {
+        expect(body).toEqual({
+          bodyText: "looking into this now",
+        });
+
+        return {
+          data: {
+            bodyText:
+              "Taylor，\n\n感谢你的耐心等待。我正在跟进此事，并会尽快向你同步最新进展。\n\n祝好，\nAgent Smith\n\ndinglinqi07@gmail.com",
+          },
+        };
+      }
+
+      throw new Error(`Unhandled POST ${url}`);
+    });
+
+    renderTicketDetailPage();
+
+    await screen.findByText("Refund request follow-up");
+
+    fireEvent.change(screen.getByLabelText("回复内容"), {
+      target: { value: "looking into this now" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Polish" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.post).toHaveBeenCalledWith("/api/tickets/7/replies/polish", {
+        bodyText: "looking into this now",
+      });
+    });
+    expect(screen.getByLabelText("回复内容")).toHaveValue(
+      "Taylor，\n\n感谢你的耐心等待。我正在跟进此事，并会尽快向你同步最新进展。\n\n祝好，\nAgent Smith\n\ndinglinqi07@gmail.com",
+    );
+  });
+
+  test("disables submit for empty replies", async () => {
     mockedApiClient.get.mockImplementation(async (url) => {
       if (url === "/api/tickets/7") {
         return { data: ticketDetail };
@@ -370,10 +419,11 @@ describe("TicketDetailPage", () => {
 
     await screen.findByText("Refund request follow-up");
 
-    fireEvent.change(screen.getByLabelText("回复内容"), { target: { value: "   " } });
-    fireEvent.click(screen.getByRole("button", { name: "提交回复" }));
+    expect(screen.getByRole("button", { name: "提交回复" })).toBeDisabled();
 
-    expect(await screen.findByText("回复内容不能为空。")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("回复内容"), { target: { value: "   " } });
+
+    expect(screen.getByRole("button", { name: "提交回复" })).toBeDisabled();
     expect(mockedApiClient.post).not.toHaveBeenCalled();
   });
 
@@ -409,5 +459,80 @@ describe("TicketDetailPage", () => {
 
     expect(await screen.findByText("提交回复失败，请稍后再试。")).toBeVisible();
     expect(screen.getByLabelText("回复内容")).toHaveValue("I am still working on your ticket.");
+  });
+
+  test("shows polish errors without clearing the input or blocking later submission", async () => {
+    mockedApiClient.get.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7") {
+        return { data: ticketDetail };
+      }
+
+      if (url === "/api/agents") {
+        return { data: { agents } };
+      }
+
+      throw new Error(`Unhandled GET ${url}`);
+    });
+    mockedApiClient.post.mockImplementation(async (url, body) => {
+      if (url === "/api/tickets/7/replies/polish") {
+        throw {
+          isAxiosError: true,
+          response: {
+            data: {
+              error: "润色回复失败，请稍后再试。",
+            },
+          },
+        };
+      }
+
+      if (url === "/api/tickets/7/replies") {
+        expect(body).toEqual({
+          bodyText: "I am still working on your ticket.",
+        });
+
+        return {
+          data: {
+            ...ticketDetail,
+            replies: [
+              ...ticketDetail.replies,
+              {
+                author: {
+                  email: "agent@example.com",
+                  id: "user_1",
+                  name: "Agent Smith",
+                },
+                bodyText: "I am still working on your ticket.",
+                createdAt: "2026-04-14T11:00:00.000Z",
+                id: 102,
+                updatedAt: "2026-04-14T11:00:00.000Z",
+              },
+            ],
+          } satisfies TicketDetail,
+        };
+      }
+
+      throw new Error(`Unhandled POST ${url}`);
+    });
+
+    renderTicketDetailPage();
+
+    await screen.findByText("Refund request follow-up");
+
+    fireEvent.change(screen.getByLabelText("回复内容"), {
+      target: { value: "I am still working on your ticket." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Polish" }));
+
+    expect(await screen.findByText("润色回复失败，请稍后再试。")).toBeVisible();
+    expect(screen.getByLabelText("回复内容")).toHaveValue("I am still working on your ticket.");
+
+    fireEvent.click(screen.getByRole("button", { name: "提交回复" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.post).toHaveBeenCalledWith("/api/tickets/7/replies", {
+        bodyText: "I am still working on your ticket.",
+      });
+    });
+    expect(await screen.findByText("I am still working on your ticket.")).toBeVisible();
   });
 });

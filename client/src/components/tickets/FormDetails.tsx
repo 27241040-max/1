@@ -1,4 +1,9 @@
-import type { TicketDetail, TicketReplyCreateInput } from "core/email";
+import type {
+  TicketDetail,
+  TicketReplyCreateInput,
+  TicketReplyPolishInput,
+  TicketReplyPolishResult,
+} from "core/email";
 
 import { TicketDetail as TicketDetailSection } from "@/components/tickets/TicketDetail";
 import { TicketReplyForm } from "@/components/tickets/TicketReplyForm";
@@ -6,15 +11,21 @@ import { TicketReplyThread } from "@/components/tickets/TicketReplyThread";
 
 type FormDetailsProps = {
   data: TicketDetail;
+  polishErrorMessage?: string;
+  polishIsSubmitting: boolean;
   replyErrorMessage?: string;
   replyIsSubmitting: boolean;
+  onPolish: (values: TicketReplyPolishInput) => Promise<TicketReplyPolishResult>;
   onReplySubmit: (values: TicketReplyCreateInput) => Promise<unknown>;
 };
 
 export function FormDetails({
   data,
+  polishErrorMessage,
+  polishIsSubmitting,
   replyErrorMessage,
   replyIsSubmitting,
+  onPolish,
   onReplySubmit,
 }: FormDetailsProps) {
   return (
@@ -30,8 +41,11 @@ export function FormDetails({
 
         <TicketReplyForm
           errorMessage={replyErrorMessage}
+          isPolishing={polishIsSubmitting}
           isSubmitting={replyIsSubmitting}
+          onPolish={onPolish}
           onSubmit={onReplySubmit}
+          polishErrorMessage={polishErrorMessage}
         />
       </div>
     </div>

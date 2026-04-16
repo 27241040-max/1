@@ -44,7 +44,9 @@ describe("FormDetails", () => {
     render(
       <FormDetails
         data={ticketDetail}
+        onPolish={vi.fn().mockResolvedValue({ bodyText: "Polished reply" })}
         onReplySubmit={vi.fn().mockResolvedValue(undefined)}
+        polishIsSubmitting={false}
         replyIsSubmitting={false}
       />,
     );
@@ -57,22 +59,28 @@ describe("FormDetails", () => {
       screen.getByText("We have reviewed your refund request and will follow up within one business day."),
     ).toBeVisible();
     expect(screen.getByText("添加回复")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Polish" })).toBeVisible();
     expect(screen.getByRole("button", { name: "提交回复" })).toBeVisible();
   });
 
-  test("passes submit state and error message to the reply form", () => {
+  test("passes polish and submit states and error messages to the reply form", () => {
     render(
       <FormDetails
         data={{ ...ticketDetail, replies: [] }}
+        onPolish={vi.fn()}
         onReplySubmit={vi.fn()}
+        polishErrorMessage="润色回复失败，请稍后再试。"
+        polishIsSubmitting
         replyErrorMessage="提交回复失败，请稍后再试。"
         replyIsSubmitting
       />,
     );
 
     expect(screen.getByText("暂无回复")).toBeVisible();
+    expect(screen.getByText("润色回复失败，请稍后再试。")).toBeVisible();
     expect(screen.getByText("提交回复失败，请稍后再试。")).toBeVisible();
     expect(screen.getByLabelText("回复内容")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Polishing..." })).toBeDisabled();
     expect(screen.getByRole("button", { name: "提交中..." })).toBeDisabled();
   });
 
@@ -82,7 +90,9 @@ describe("FormDetails", () => {
     render(
       <FormDetails
         data={ticketDetail}
+        onPolish={vi.fn().mockResolvedValue({ bodyText: "Polished reply" })}
         onReplySubmit={onReplySubmit}
+        polishIsSubmitting={false}
         replyIsSubmitting={false}
       />,
     );

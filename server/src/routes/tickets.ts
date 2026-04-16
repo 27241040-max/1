@@ -2,6 +2,7 @@ import {
   ticketAssignmentSchema,
   ticketListQuerySchema,
   ticketReplyCreateSchema,
+  ticketReplyPolishSchema,
   ticketUpdateSchema,
   type TicketSortField,
   type TicketSortOrder,
@@ -9,6 +10,7 @@ import {
 import { Router } from "express";
 
 import { Prisma } from "../generated/prisma";
+import { polishTicketReply } from "../lib/ai/polish-ticket-reply";
 import { parsePositiveIntParam } from "../lib/route-params";
 import { getIssueMessage } from "../lib/validation";
 
@@ -314,4 +316,46 @@ ticketsRouter.post("/:id/replies", async (req, res) => {
   });
 
   res.json(updatedTicket);
+});
+
+ticketsRouter.post("/:id/replies/polish", async (req, res) => {
+  const ticketId = parsePositiveIntParam(req.params.id);
+
+  if (!ticketId) {
+    res.status(400).json({ error: "工单 ID 无效。" });
+    return;
+  }
+
+  const result = ticketReplyPolishSchema.safeParse(req.body ?? {});
+
+  if (!result.success) {
+    res.status(400).json({ error: getIssueMessage(result.error) });
+    return;
+  }
+
+  const userId = req.user?.id;
+  const agentName = req.user?.name?.trim();
+
+  if (!userId || !agentName) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: ticketDetailSelect,
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "工单不存在。" });
+    return;
+  }
+
+  try {
+    const polishedReply = await polishTicketReply(ticket, result.data.bodyText, agentName);
+    res.json(polishedReply);
+  } catch (error) {
+    console.error("润色回复失败:", error);
+    res.status(500).json({ error: "润色回复失败，请稍后再试。" });
+  }
 });
