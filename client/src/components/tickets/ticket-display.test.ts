@@ -1,9 +1,9 @@
-import { TicketCategory } from "core/email";
+import { TicketCategory, TicketStatus } from "core/email";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { shouldPollForTicketAutoClassification } from "./ticket-display";
+import { shouldPollForTicketAutomation } from "./ticket-display";
 
-describe("shouldPollForTicketAutoClassification", () => {
+describe("shouldPollForTicketAutomation", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -13,9 +13,16 @@ describe("shouldPollForTicketAutoClassification", () => {
     vi.setSystemTime(new Date("2026-04-14T10:00:30.000Z"));
 
     expect(
-      shouldPollForTicketAutoClassification({
+      shouldPollForTicketAutomation({
         category: null,
         createdAt: "2026-04-14T10:00:00.000Z",
+      }),
+    ).toBe(true);
+    expect(
+      shouldPollForTicketAutomation({
+        category: TicketCategory.general,
+        createdAt: "2026-04-14T10:00:00.000Z",
+        status: TicketStatus.processing,
       }),
     ).toBe(true);
   });
@@ -25,13 +32,13 @@ describe("shouldPollForTicketAutoClassification", () => {
     vi.setSystemTime(new Date("2026-04-14T10:02:30.000Z"));
 
     expect(
-      shouldPollForTicketAutoClassification({
+      shouldPollForTicketAutomation({
         category: TicketCategory.technical,
         createdAt: "2026-04-14T10:02:00.000Z",
       }),
     ).toBe(false);
     expect(
-      shouldPollForTicketAutoClassification({
+      shouldPollForTicketAutomation({
         category: null,
         createdAt: "2026-04-14T10:00:00.000Z",
       }),

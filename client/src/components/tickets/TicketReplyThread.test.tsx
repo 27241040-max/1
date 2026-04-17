@@ -6,6 +6,7 @@ import { TicketReplyThread } from "./TicketReplyThread";
 
 const replies: TicketReply[] = [
   {
+    authorLabel: "Agent Smith",
     author: {
       email: "agent@example.com",
       id: "user_1",
@@ -14,9 +15,11 @@ const replies: TicketReply[] = [
     bodyText: "We have reviewed your request and will send a follow-up shortly.",
     createdAt: "2026-04-14T10:00:00.000Z",
     id: 101,
+    source: "agent",
     updatedAt: "2026-04-14T10:00:00.000Z",
   },
   {
+    authorLabel: "Taylor Agent",
     author: {
       email: "taylor.agent@example.com",
       id: "user_2",
@@ -25,6 +28,7 @@ const replies: TicketReply[] = [
     bodyText: "The issue has been escalated to our billing team.",
     createdAt: "2026-04-14T11:30:00.000Z",
     id: 102,
+    source: "agent",
     updatedAt: "2026-04-14T11:30:00.000Z",
   },
 ];
@@ -34,7 +38,7 @@ describe("TicketReplyThread", () => {
     render(<TicketReplyThread replies={[]} />);
 
     expect(screen.getByText("回复线程")).toBeVisible();
-    expect(screen.getByText("按时间顺序显示客服回复。")).toBeVisible();
+    expect(screen.getByText("按时间顺序显示客服与系统回复。")).toBeVisible();
     expect(screen.getByText("暂无回复")).toBeVisible();
   });
 
@@ -49,5 +53,27 @@ describe("TicketReplyThread", () => {
       screen.getByText("We have reviewed your request and will send a follow-up shortly."),
     ).toBeVisible();
     expect(screen.getByText("The issue has been escalated to our billing team.")).toBeVisible();
+  });
+
+  test("preserves line breaks in reply body text", () => {
+    const multilineReply: TicketReply = {
+      authorLabel: "Agent Smith",
+      author: {
+        email: "agent@example.com",
+        id: "user_1",
+        name: "Agent Smith",
+      },
+      bodyText: "Line one\nLine two",
+      createdAt: "2026-04-14T12:00:00.000Z",
+      id: 103,
+      source: "agent",
+      updatedAt: "2026-04-14T12:00:00.000Z",
+    };
+
+    render(<TicketReplyThread replies={[multilineReply]} />);
+
+    const multilineBody = screen.getByText((_, node) => node?.textContent === "Line one\nLine two");
+
+    expect(multilineBody).toHaveClass("whitespace-pre-wrap");
   });
 });

@@ -14,7 +14,7 @@ export function TicketReplyThread({ replies }: TicketReplyThreadProps) {
           回复线程
         </span>
         <span className="text-sm text-muted-foreground">
-          按时间顺序显示客服回复。
+          按时间顺序显示客服与系统回复。
         </span>
       </div>
 
@@ -32,17 +32,19 @@ export function TicketReplyThread({ replies }: TicketReplyThreadProps) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="grid gap-0.5">
                   <span className="text-sm font-medium text-card-foreground">
-                    {reply.author.name}
+                    {reply.authorLabel}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {reply.author.email}
-                  </span>
+                  {reply.author?.email ? (
+                    <span className="text-xs text-muted-foreground">
+                      {reply.author.email}
+                    </span>
+                  ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
                   {formatTicketDate(reply.createdAt)}
                 </span>
               </div>
-              <p className="text-sm leading-7 text-card-foreground">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-card-foreground">
                 {reply.bodyText}
               </p>
             </article>

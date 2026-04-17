@@ -46,6 +46,7 @@ const ticketDetail: TicketDetail = {
   id: 7,
   replies: [
     {
+      authorLabel: "Agent Smith",
       author: {
         email: "agent@example.com",
         id: "user_1",
@@ -54,6 +55,7 @@ const ticketDetail: TicketDetail = {
       bodyText: "We have reviewed your refund request and will follow up within one business day.",
       createdAt: "2026-04-14T10:00:00.000Z",
       id: 101,
+      source: "agent",
       updatedAt: "2026-04-14T10:00:00.000Z",
     },
   ],
@@ -323,6 +325,7 @@ describe("TicketDetailPage", () => {
         replies: [
           ...ticketDetail.replies,
           {
+            authorLabel: "Taylor Agent",
             author: {
               email: "taylor.agent@example.com",
               id: "user_2",
@@ -331,6 +334,7 @@ describe("TicketDetailPage", () => {
             bodyText: "Thanks for your patience. I have escalated this and will update you tomorrow.",
             createdAt: "2026-04-14T11:00:00.000Z",
             id: 102,
+            source: "agent",
             updatedAt: "2026-04-14T11:00:00.000Z",
           },
         ],
@@ -554,6 +558,7 @@ describe("TicketDetailPage", () => {
             replies: [
               ...ticketDetail.replies,
               {
+                authorLabel: "Agent Smith",
                 author: {
                   email: "agent@example.com",
                   id: "user_1",
@@ -562,6 +567,7 @@ describe("TicketDetailPage", () => {
                 bodyText: "I am still working on your ticket.",
                 createdAt: "2026-04-14T11:00:00.000Z",
                 id: 102,
+                source: "agent",
                 updatedAt: "2026-04-14T11:00:00.000Z",
               },
             ],

@@ -9,7 +9,7 @@ import {
 } from "core/email";
 import { Router } from "express";
 
-import { Prisma } from "../generated/prisma";
+import { Prisma, TicketStatus as PrismaTicketStatus } from "../generated/prisma";
 import { polishTicketReply } from "../lib/ai/polish-ticket-reply";
 import { summarizeTicketThread } from "../lib/ai/summarize-ticket-thread";
 import { parsePositiveIntParam } from "../lib/route-params";
@@ -49,6 +49,8 @@ const ticketDetailSelect = {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
+      source: true,
+      authorLabel: true,
       bodyText: true,
       createdAt: true,
       updatedAt: true,
@@ -81,6 +83,37 @@ function getTicketOrderBy(
   }
 }
 
+function getTicketListStatusWhere(status: PrismaTicketStatus | undefined): Prisma.TicketWhereInput {
+  if (!status) {
+    return {};
+  }
+
+  if (status === PrismaTicketStatus.open) {
+    return {
+      status: {
+        in: [PrismaTicketStatus.new, PrismaTicketStatus.processing, PrismaTicketStatus.open],
+      },
+    };
+  }
+
+  return { status };
+}
+
+function getTicketListStatus(status: PrismaTicketStatus): PrismaTicketStatus {
+  switch (status) {
+    case PrismaTicketStatus.new:
+    case PrismaTicketStatus.processing:
+    case PrismaTicketStatus.open:
+      return PrismaTicketStatus.open;
+    case PrismaTicketStatus.resolved:
+      return PrismaTicketStatus.resolved;
+    case PrismaTicketStatus.closed:
+      return PrismaTicketStatus.closed;
+  }
+
+  return PrismaTicketStatus.open;
+}
+
 ticketsRouter.get("/", async (req, res) => {
   const result = ticketListQuerySchema.safeParse(req.query);
 
@@ -90,7 +123,7 @@ ticketsRouter.get("/", async (req, res) => {
   }
 
   const where: Prisma.TicketWhereInput = {
-    ...(result.data.status ? { status: result.data.status } : {}),
+    ...getTicketListStatusWhere(result.data.status as PrismaTicketStatus | undefined),
     ...(result.data.category ? { category: result.data.category } : {}),
     ...(result.data.q
       ? {
@@ -157,7 +190,10 @@ ticketsRouter.get("/", async (req, res) => {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     },
-    tickets,
+    tickets: tickets.map((ticket) => ({
+      ...ticket,
+      status: getTicketListStatus(ticket.status),
+    })),
   });
 });
 
@@ -211,7 +247,7 @@ ticketsRouter.patch("/:id", async (req, res) => {
     where: { id: ticketId },
     data: {
       category: result.data.category,
-      status: result.data.status,
+      status: result.data.status as PrismaTicketStatus,
     },
     select: ticketDetailSelect,
   });
@@ -287,6 +323,7 @@ ticketsRouter.post("/:id/replies", async (req, res) => {
   }
 
   const userId = req.user?.id;
+  const agentName = req.user?.name?.trim();
 
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
@@ -306,8 +343,10 @@ ticketsRouter.post("/:id/replies", async (req, res) => {
   await prisma.ticketReply.create({
     data: {
       ticketId,
+      authorLabel: agentName || "Agent",
       authorUserId: userId,
       bodyText: result.data.bodyText,
+      source: "agent",
     },
   });
 

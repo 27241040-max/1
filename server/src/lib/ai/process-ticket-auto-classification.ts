@@ -1,4 +1,4 @@
-import { TicketCategory } from "../../generated/prisma";
+import { TicketCategory, TicketStatus } from "../../generated/prisma";
 import { prisma } from "../../prisma";
 import { classifyTicket } from "./classify-ticket";
 
@@ -35,22 +35,36 @@ async function getTicketClassificationCandidate(
   });
 }
 
-export async function runTicketAutoClassification(ticketId: number): Promise<void> {
+export async function processTicketAutoClassification(ticketId: number): Promise<void> {
   const ticket = await getTicketClassificationCandidate(ticketId);
 
   if (!ticket || ticket.category) {
     return;
   }
 
-  const category = await classifyTicket(ticket);
+  try {
+    const category = await classifyTicket(ticket);
 
-  await prisma.ticket.updateMany({
-    where: {
-      id: ticketId,
-      category: null,
-    },
-    data: {
-      category,
-    },
-  });
+    await prisma.ticket.updateMany({
+      where: {
+        id: ticketId,
+        category: null,
+      },
+      data: {
+        category,
+      },
+    });
+  } catch (error) {
+    console.error(`工单 ${ticketId} 自动分类失败，状态回退为 open:`, error);
+
+    await prisma.ticket.updateMany({
+      where: {
+        id: ticketId,
+        status: TicketStatus.new,
+      },
+      data: {
+        status: TicketStatus.open,
+      },
+    });
+  }
 }

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { classifyTicketMock, prismaMock } = vi.hoisted(() => ({
-  classifyTicketMock: vi.fn(),
+const { prismaMock, classifyTicketMock } = vi.hoisted(() => ({
   prismaMock: {
     ticket: {
       findUnique: vi.fn(),
       updateMany: vi.fn(),
     },
   },
+  classifyTicketMock: vi.fn(),
 }));
 
 vi.mock("../../prisma", () => ({
@@ -18,8 +18,8 @@ vi.mock("./classify-ticket", () => ({
   classifyTicket: classifyTicketMock,
 }));
 
-import { TicketCategory } from "../../generated/prisma";
-import { runTicketAutoClassification } from "./ticket-auto-classification";
+import { TicketCategory, TicketStatus } from "../../generated/prisma";
+import { processTicketAutoClassification } from "./process-ticket-auto-classification";
 
 const uncategorizedTicket = {
   bodyText: "应用一直报错，上传按钮点了没有反应。",
@@ -33,7 +33,7 @@ const uncategorizedTicket = {
   subject: "Upload failed",
 };
 
-describe("ticket auto classification", () => {
+describe("processTicketAutoClassification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -43,7 +43,7 @@ describe("ticket auto classification", () => {
     classifyTicketMock.mockResolvedValue(TicketCategory.technical);
     prismaMock.ticket.updateMany.mockResolvedValue({ count: 1 });
 
-    await runTicketAutoClassification(7);
+    await processTicketAutoClassification(7);
 
     expect(classifyTicketMock).toHaveBeenCalledWith(uncategorizedTicket);
     expect(prismaMock.ticket.updateMany).toHaveBeenCalledWith({
@@ -63,9 +63,30 @@ describe("ticket auto classification", () => {
       category: TicketCategory.general,
     });
 
-    await runTicketAutoClassification(7);
+    await processTicketAutoClassification(7);
 
     expect(classifyTicketMock).not.toHaveBeenCalled();
     expect(prismaMock.ticket.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("marks the ticket open when classification throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    prismaMock.ticket.findUnique.mockResolvedValue(uncategorizedTicket);
+    classifyTicketMock.mockRejectedValue(new Error("generateText failed"));
+    prismaMock.ticket.updateMany.mockResolvedValue({ count: 1 });
+
+    await processTicketAutoClassification(7);
+
+    expect(prismaMock.ticket.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 7,
+        status: TicketStatus.new,
+      },
+      data: {
+        status: TicketStatus.open,
+      },
+    });
+
+    errorSpy.mockRestore();
   });
 });

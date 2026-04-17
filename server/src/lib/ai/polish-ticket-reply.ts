@@ -18,20 +18,21 @@ type PolishTicketReplyContext = {
   };
   replies: Array<{
     author: {
-      email: string;
-      id: string;
-      name: string;
-    };
+      email: string | null;
+      id: string | null;
+      name: string | null;
+    } | null;
+    authorLabel: string;
     bodyText: string;
     createdAt: Date;
     id: number;
+    source: "agent" | "ai_auto_resolution";
     updatedAt: Date;
   }>;
   subject: string;
 };
 
-const polishReplySignatureEmail = "dinglinqi07@gmail.com";
-const polishReplyClosingLine = "祝好，";
+const replySignatureName = "Code with MasterHong Support";
 
 function getCustomerFirstName(fullName: string) {
   const normalizedName = fullName.trim().replace(/\s+/g, " ");
@@ -54,9 +55,12 @@ function formatReplyHistory(context: PolishTicketReplyContext) {
 
   return context.replies
     .map((reply, index) => {
+      const authorName = reply.authorLabel || reply.author?.name || "System";
+      const authorEmail = reply.author?.email ? ` <${reply.author.email}>` : "";
+
       return [
         `#${index + 1}`,
-        `作者: ${reply.author.name} <${reply.author.email}>`,
+        `作者: ${authorName}${authorEmail}`,
         `时间: ${reply.createdAt.toISOString()}`,
         `内容: ${reply.bodyText}`,
       ].join("\n");
@@ -64,22 +68,19 @@ function formatReplyHistory(context: PolishTicketReplyContext) {
     .join("\n\n");
 }
 
-function appendSignature(bodyText: string, agentName: string) {
+function appendSignature(bodyText: string) {
   const trimmedBodyText = bodyText.trim().replace(/\s+$/, "");
 
-  return `${trimmedBodyText}\n\n${polishReplyClosingLine}\n${agentName}\n\n${polishReplySignatureEmail}`;
+  return `${trimmedBodyText}\n\n${replySignatureName}`;
 }
 
-function removeTrailingSignature(bodyText: string, agentName: string) {
-  const normalizedAgentName = agentName.trim();
+function removeTrailingSignature(bodyText: string) {
   const normalizedBodyText = bodyText.trim();
   const signaturePatterns = [
-    new RegExp(
-      `\\n*${escapeRegExp(polishReplyClosingLine)}\\s*\\n\\s*${escapeRegExp(normalizedAgentName)}\\s*\\n\\s*${escapeRegExp(polishReplySignatureEmail)}\\s*$`,
-    ),
-    new RegExp(
-      `\\n*${escapeRegExp(polishReplyClosingLine)}\\s*\\n\\s*/\\s*${escapeRegExp(normalizedAgentName)}\\s*\\n\\s*/\\s*${escapeRegExp(polishReplySignatureEmail)}\\s*$`,
-    ),
+    /\n*\s*Best regards,\s*\n\s*Code with MasterHong Support\s*$/i,
+    /\n*\s*Kind regards,\s*\n\s*Code with MasterHong Support\s*$/i,
+    /\n*\s*祝好，\s*\n\s*.+?\s*\n\s*.+?\s*$/s,
+    /\n*\s*Code with MasterHong Support\s*$/i,
   ];
 
   return signaturePatterns.reduce((result, pattern) => result.replace(pattern, "").trim(), normalizedBodyText);
@@ -88,7 +89,7 @@ function removeTrailingSignature(bodyText: string, agentName: string) {
 export async function polishTicketReply(
   context: PolishTicketReplyContext,
   draftReply: string,
-  agentName: string,
+  _agentName: string,
 ): Promise<TicketReplyPolishResult> {
   const customerFirstName = getCustomerFirstName(context.customer.name);
   const deepseek = createDeepSeek({
@@ -103,11 +104,10 @@ export async function polishTicketReply(
       "保持当前草稿的原意、事实和行动承诺不变，只优化表达、条理、礼貌度、专业度和清晰度。",
       "无论当前草稿是什么语言，最终回复必须使用简体中文。",
       `回复开头必须称呼客户，并且只使用客户 first name：${customerFirstName}。不要使用客户的姓氏、全名、邮箱或泛化称呼。`,
-      "输出纯文本，不要使用 Markdown、标题、称呼模板、项目符号或解释。",
-      "润色正文后，请以以下固定中文邮件签名结尾，并严格使用换行，不要在行首添加 /：",
-      polishReplyClosingLine,
-      agentName,
-      polishReplySignatureEmail,
+      "输出纯文本，不要使用 Markdown、标题、项目符号或解释。",
+      "请使用规范邮件格式：称呼、正文、结尾署名。",
+      `邮件结尾必须仅以以下署名单独成行结尾：${replySignatureName}`,
+      "回复语气必须专业、友好、清晰。",
     ].join("\n"),
     prompt: [
       `工单主题: ${context.subject}`,
@@ -132,6 +132,6 @@ export async function polishTicketReply(
   }
 
   return {
-    bodyText: appendSignature(removeTrailingSignature(polishedReply, agentName), agentName),
+    bodyText: appendSignature(removeTrailingSignature(polishedReply)),
   };
 }

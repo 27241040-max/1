@@ -1,11 +1,13 @@
 import { PgBoss } from "pg-boss";
 
 import { getRequiredEnv } from "../config";
-import { runTicketAutoClassification } from "../lib/ai/ticket-auto-classification";
+import { processTicketAutoClassification } from "../lib/ai/process-ticket-auto-classification";
+import { processTicketAutoReply } from "../lib/ai/process-ticket-auto-reply";
 
 const ticketAutoClassificationQueue = "ticket-auto-classification";
+const ticketAutoReplyQueue = "ticket-auto-reply";
 
-type TicketAutoClassificationJobData = {
+type TicketJobData = {
   ticketId: number;
 };
 
@@ -25,7 +27,9 @@ function getBoss() {
 
 async function registerWorkers(instance: PgBoss) {
   await instance.createQueue(ticketAutoClassificationQueue);
-  await instance.work<TicketAutoClassificationJobData>(ticketAutoClassificationQueue, async (jobs) => {
+  await instance.createQueue(ticketAutoReplyQueue);
+
+  await instance.work<TicketJobData>(ticketAutoClassificationQueue, async (jobs) => {
     for (const job of jobs) {
       const ticketId = job.data?.ticketId;
 
@@ -34,7 +38,26 @@ async function registerWorkers(instance: PgBoss) {
         continue;
       }
 
-      await runTicketAutoClassification(ticketId);
+      try {
+        await processTicketAutoClassification(ticketId);
+      } catch (error) {
+        console.error(`工单 ${ticketId} 自动分类失败:`, error);
+      }
+
+      await instance.send(ticketAutoReplyQueue, { ticketId });
+    }
+  });
+
+  await instance.work<TicketJobData>(ticketAutoReplyQueue, async (jobs) => {
+    for (const job of jobs) {
+      const ticketId = job.data?.ticketId;
+
+      if (!Number.isInteger(ticketId) || typeof ticketId !== "number" || ticketId <= 0) {
+        console.warn("收到无效的工单自动回复任务:", job.data);
+        continue;
+      }
+
+      await processTicketAutoReply(ticketId);
     }
   });
 }
@@ -77,8 +100,20 @@ export async function sendTicketAutoClassificationJob(ticketId: number) {
   return instance.send(ticketAutoClassificationQueue, { ticketId });
 }
 
+export async function sendTicketAutoReplyJob(ticketId: number) {
+  const instance = await startBoss();
+
+  return instance.send(ticketAutoReplyQueue, { ticketId });
+}
+
 export function queueTicketAutoClassification(ticketId: number): void {
   void sendTicketAutoClassificationJob(ticketId).catch((error) => {
     console.error(`工单 ${ticketId} 自动分类任务入队失败:`, error);
+  });
+}
+
+export function queueTicketAutoReply(ticketId: number): void {
+  void sendTicketAutoReplyJob(ticketId).catch((error) => {
+    console.error(`工单 ${ticketId} 自动回复任务入队失败:`, error);
   });
 }

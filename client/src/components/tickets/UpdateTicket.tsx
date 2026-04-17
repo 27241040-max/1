@@ -71,7 +71,11 @@ export function UpdateTicket({
     <>
       <aside className="grid gap-4 lg:pt-1">
         <DetailItem
-          label="状态"
+          label="当前状态"
+          value={getTicketStatusLabel(ticket.status)}
+        />
+        <DetailItem
+          label="手动更新状态"
           value={
             <Select
               disabled={updateIsPending}

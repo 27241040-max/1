@@ -4,7 +4,7 @@ import type {
 } from "core/email";
 import { SparklesIcon } from "lucide-react";
 
-import { formatTicketDate } from "@/components/tickets/ticket-display";
+import { formatTicketDate, getTicketStatusLabel } from "@/components/tickets/ticket-display";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 
@@ -23,6 +23,8 @@ export function TicketDetail({
   summaryErrorMessage,
   ticket,
 }: TicketDetailProps) {
+  const wasAutoResolved = ticket.replies.some((reply) => reply.source === "ai_auto_resolution");
+
   return (
     <>
       <div className="grid gap-1.5">
@@ -36,6 +38,10 @@ export function TicketDetail({
         <p className="text-card-foreground">
           <span className="text-muted-foreground">客户:</span>{" "}
           {ticket.customer.name} ({ticket.customer.email})
+        </p>
+        <p className="text-card-foreground">
+          <span className="text-muted-foreground">当前状态:</span>{" "}
+          {getTicketStatusLabel(ticket.status)}
         </p>
         <p className="text-card-foreground">
           <span className="text-muted-foreground">创建时间:</span>{" "}
@@ -57,6 +63,12 @@ export function TicketDetail({
         <p className="whitespace-pre-wrap text-sm leading-7 text-card-foreground">
           {ticket.bodyText}
         </p>
+
+        {ticket.status === "resolved" && wasAutoResolved ? (
+          <p className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
+            该工单已由知识库自动处理，并已生成系统回复。
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
           <Button

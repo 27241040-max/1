@@ -16,7 +16,7 @@ import { Link, useParams } from "react-router";
 
 import { FormDetails } from "@/components/tickets/FormDetails";
 import { TicketDetailSkeleton } from "@/components/tickets/TicketDetailSkeleton";
-import { shouldPollForTicketAutoClassification } from "@/components/tickets/ticket-display";
+import { shouldPollForTicketAutomation } from "@/components/tickets/ticket-display";
 import { UpdateTicket } from "@/components/tickets/UpdateTicket";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +24,14 @@ import { apiClient } from "../lib/api-client";
 
 const unassignedAgentValue = "__unassigned__";
 const uncategorizedValue = "__uncategorized__";
+
+function getEditableTicketStatus(status: TicketStatusValue) {
+  if (status === TicketStatus.new || status === TicketStatus.processing) {
+    return TicketStatus.open;
+  }
+
+  return status;
+}
 
 function getTicketDetailErrorState(error: unknown): "error" | "not_found" {
   if (
@@ -103,7 +111,7 @@ export function TicketDetailPage() {
       return response.data;
     },
     refetchInterval: (query) =>
-      query.state.data && shouldPollForTicketAutoClassification(query.state.data) ? 3_000 : false,
+      query.state.data && shouldPollForTicketAutomation(query.state.data) ? 3_000 : false,
   });
 
   const { data: agentsData } = useQuery({
@@ -198,7 +206,7 @@ export function TicketDetailPage() {
     (assignmentDraft ?? currentAssignedAgentId) || unassignedAgentValue;
   const currentStatus = data?.status ?? TicketStatus.open;
   const currentCategoryValue = data?.category ?? uncategorizedValue;
-  const selectedStatus = statusDraft ?? currentStatus;
+  const selectedStatus = statusDraft ?? getEditableTicketStatus(currentStatus);
   const selectedCategory = categoryDraft ?? currentCategoryValue;
   return (
     <section className="mx-auto grid max-w-5xl gap-4 px-2">

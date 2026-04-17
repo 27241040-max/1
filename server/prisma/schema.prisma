@@ -15,9 +15,16 @@ enum UserRole {
 }
 
 enum TicketStatus {
+  new
+  processing
   open
   resolved
   closed
+}
+
+enum TicketReplySource {
+  agent
+  ai_auto_resolution
 }
 
 enum TicketCategory {
@@ -41,7 +48,7 @@ model Ticket {
   id                Int             @id @default(autoincrement())
   subject           String
   bodyText          String
-  status            TicketStatus    @default(open)
+  status            TicketStatus    @default(new)
   category          TicketCategory?
   source            String
   externalMessageId String?         @unique
@@ -59,14 +66,16 @@ model Ticket {
 }
 
 model TicketReply {
-  id           Int      @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   ticketId      Int
-  authorUserId  String
+  authorUserId  String?
+  authorLabel   String
+  source        TicketReplySource @default(agent)
   bodyText      String
-  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author        User     @relation("TicketReplyAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  ticket        Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author        User?             @relation("TicketReplyAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([authorUserId])
   @@index([ticketId])

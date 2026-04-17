@@ -5,27 +5,36 @@ import { Badge } from "@/components/ui/badge";
 export function formatTicketDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     dateStyle: "medium",
-    timeStyle: "short",
+    timeStyle: "medium",
   }).format(new Date(value));
 }
 
 const autoClassificationPollingWindowMs = 60_000;
 
-export function shouldPollForTicketAutoClassification(ticket: {
+export function shouldPollForTicketAutomation(ticket: {
   category: TicketCategory | null;
   createdAt: string;
+  status?: TicketStatus;
 }) {
-  if (ticket.category) {
-    return false;
-  }
-
   const createdAt = new Date(ticket.createdAt).getTime();
 
   if (Number.isNaN(createdAt)) {
     return false;
   }
 
-  return Date.now() - createdAt < autoClassificationPollingWindowMs;
+  if (Date.now() - createdAt >= autoClassificationPollingWindowMs) {
+    return false;
+  }
+
+  if (ticket.status === TicketStatus.new || ticket.status === TicketStatus.processing) {
+    return true;
+  }
+
+  if (ticket.status === TicketStatus.open) {
+    return ticket.category === null;
+  }
+
+  return ticket.category === null;
 }
 
 export function getTicketCategoryLabel(category: TicketCategory | null) {
@@ -52,8 +61,12 @@ export const ticketCategoryOptions: Array<{ label: string; value: TicketCategory
 
 export function getTicketStatusLabel(status: TicketStatus) {
   switch (status) {
+    case TicketStatus.new:
+      return "New";
     case TicketStatus.open:
       return "Open";
+    case TicketStatus.processing:
+      return "Processing";
     case TicketStatus.resolved:
       return "Resolved";
     case TicketStatus.closed:
@@ -69,6 +82,8 @@ export const ticketStatusOptions: Array<{ label: string; value: TicketStatus }> 
 
 export function getTicketStatusClassName(status: TicketStatus) {
   switch (status) {
+    case TicketStatus.new:
+    case TicketStatus.processing:
     case TicketStatus.open:
       return "border-transparent bg-primary text-primary-foreground";
     case TicketStatus.resolved:

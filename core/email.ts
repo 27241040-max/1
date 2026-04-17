@@ -2,7 +2,9 @@ import { z } from "zod";
 
 export enum TicketStatus {
   closed = "closed",
+  new = "new",
   open = "open",
+  processing = "processing",
   resolved = "resolved",
 }
 
@@ -136,15 +138,23 @@ export type TicketDetail = {
 
 export type TicketReply = {
   author: {
+    email: string | null;
+    id: string | null;
+    name: string | null;
+  } | null;
+  authorLabel: string;
+  bodyText: string;
+  createdAt: string;
+  id: number;
+  source: "agent" | "ai_auto_resolution";
+  updatedAt: string;
+};
+
+export type TicketReplyAuthor = {
     email: string;
     id: string;
     name: string;
   };
-  bodyText: string;
-  createdAt: string;
-  id: number;
-  updatedAt: string;
-};
 
 export type TicketAssignableAgent = {
   email: string;

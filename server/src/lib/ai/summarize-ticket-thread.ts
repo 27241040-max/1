@@ -13,13 +13,15 @@ type SummarizeTicketThreadContext = {
   };
   replies: Array<{
     author: {
-      email: string;
-      id: string;
-      name: string;
-    };
+      email: string | null;
+      id: string | null;
+      name: string | null;
+    } | null;
+    authorLabel: string;
     bodyText: string;
     createdAt: Date;
     id: number;
+    source: "agent" | "ai_auto_resolution";
     updatedAt: Date;
   }>;
   subject: string;
@@ -34,7 +36,9 @@ function formatReplyHistory(context: SummarizeTicketThreadContext) {
     .map((reply, index) =>
       [
         `#${index + 1}`,
-        `作者: ${reply.author.name} <${reply.author.email}>`,
+        `作者: ${reply.authorLabel || reply.author?.name || "System"}${
+          reply.author?.email ? ` <${reply.author.email}>` : ""
+        }`,
         `时间: ${reply.createdAt.toISOString()}`,
         `内容: ${reply.bodyText}`,
       ].join("\n"),

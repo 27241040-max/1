@@ -22,6 +22,7 @@ const ticketDetail: TicketDetail = {
   id: 7,
   replies: [
     {
+      authorLabel: "Agent Smith",
       author: {
         email: "agent@example.com",
         id: "user_1",
@@ -30,6 +31,7 @@ const ticketDetail: TicketDetail = {
       bodyText: "We have reviewed your refund request and will follow up within one business day.",
       createdAt: "2026-04-14T10:00:00.000Z",
       id: 101,
+      source: "agent",
       updatedAt: "2026-04-14T10:00:00.000Z",
     },
   ],

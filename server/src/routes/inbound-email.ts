@@ -94,7 +94,7 @@ inboundEmailRouter.post("/", async (req, res) => {
       customerId: customer.id,
       externalMessageId: messageId,
       source: "email",
-      status: TicketStatus.open,
+      status: TicketStatus.new,
       subject: result.data.subject,
     },
     select: {
@@ -105,7 +105,5 @@ inboundEmailRouter.post("/", async (req, res) => {
 
   res.status(201).json({ created: true, ticketId: ticket.id });
 
-  if (!ticket.category) {
-    queueTicketAutoClassification(ticket.id);
-  }
+  queueTicketAutoClassification(ticket.id);
 });

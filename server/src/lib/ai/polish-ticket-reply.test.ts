@@ -44,6 +44,7 @@ const ticketContext = {
   },
   replies: [
     {
+      authorLabel: "Agent Smith",
       author: {
         email: "agent@example.com",
         id: "user_2",
@@ -52,6 +53,7 @@ const ticketContext = {
       bodyText: "我们正在核实退款状态。",
       createdAt: new Date("2026-04-14T10:00:00.000Z"),
       id: 101,
+      source: "agent" as const,
       updatedAt: new Date("2026-04-14T10:00:00.000Z"),
     },
   ],
@@ -88,18 +90,22 @@ describe("polishTicketReply", () => {
         system: expect.stringContaining("只使用客户 first name：Taylor"),
       }),
     );
+    expect(generateTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining("Code with MasterHong Support"),
+      }),
+    );
   });
 
-  test("normalizes a slash-prefixed signature into the standard closing block", async () => {
+  test("normalizes a model-provided signature into the standard closing block", async () => {
     generateTextMock.mockResolvedValue({
       text: [
         "Taylor，",
         "",
         "感谢你的耐心等待。我会继续跟进并尽快回复你。",
         "",
-        "祝好，",
-        "/ Administrator",
-        "/ dinglinqi07@gmail.com",
+        "Best regards,",
+        "Code with MasterHong Support",
       ].join("\n"),
     });
 
@@ -111,10 +117,7 @@ describe("polishTicketReply", () => {
         "",
         "感谢你的耐心等待。我会继续跟进并尽快回复你。",
         "",
-        "祝好，",
-        "Administrator",
-        "",
-        "dinglinqi07@gmail.com",
+        "Code with MasterHong Support",
       ].join("\n"),
     });
   });
@@ -132,10 +135,7 @@ describe("polishTicketReply", () => {
         "",
         "感谢你的耐心等待。我会继续跟进并尽快回复你。",
         "",
-        "祝好，",
-        "Administrator",
-        "",
-        "dinglinqi07@gmail.com",
+        "Code with MasterHong Support",
       ].join("\n"),
     );
   });
