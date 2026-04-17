@@ -7,10 +7,11 @@ import {
   type TicketDetail,
   type TicketReplyPolishInput,
   type TicketReplyPolishResult,
+  type TicketSummaryResult,
   TicketStatus,
   type TicketStatus as TicketStatusValue,
 } from "core/email";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { FormDetails } from "@/components/tickets/FormDetails";
@@ -75,6 +76,14 @@ function getTicketReplyPolishErrorMessage(error: unknown) {
   return "润色回复失败，请稍后再试。";
 }
 
+function getTicketSummaryErrorMessage(error: unknown) {
+  if (axios.isAxiosError<{ error?: string }>(error)) {
+    return error.response?.data?.error ?? "生成摘要失败，请稍后再试。";
+  }
+
+  return "生成摘要失败，请稍后再试。";
+}
+
 export function TicketDetailPage() {
   const params = useParams();
   const ticketId = params.ticketId;
@@ -82,6 +91,8 @@ export function TicketDetailPage() {
   const [assignmentDraft, setAssignmentDraft] = useState<string | null>(null);
   const [statusDraft, setStatusDraft] = useState<TicketStatusValue | null>(null);
   const [categoryDraft, setCategoryDraft] = useState<string | null>(null);
+  const [summary, setSummary] = useState<TicketSummaryResult | null>(null);
+  const [summaryErrorMessage, setSummaryErrorMessage] = useState<string | undefined>(undefined);
 
   const { data, isPending, isError, error } = useQuery({
     enabled: Boolean(ticketId),
@@ -134,6 +145,8 @@ export function TicketDetailPage() {
       return response.data;
     },
     onSuccess: (updatedTicket) => {
+      setSummary(null);
+      setSummaryErrorMessage(undefined);
       queryClient.setQueryData(["ticket", ticketId], updatedTicket);
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
@@ -148,6 +161,28 @@ export function TicketDetailPage() {
       return response.data;
     },
   });
+
+  const ticketSummaryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post<TicketSummaryResult>(`/api/tickets/${ticketId}/summary`);
+      return response.data;
+    },
+    onMutate: () => {
+      setSummary(null);
+      setSummaryErrorMessage(undefined);
+    },
+    onSuccess: (result) => {
+      setSummary(result);
+    },
+    onError: (error) => {
+      setSummaryErrorMessage(getTicketSummaryErrorMessage(error));
+    },
+  });
+
+  useEffect(() => {
+    setSummary(null);
+    setSummaryErrorMessage(undefined);
+  }, [ticketId]);
 
   if (isError) {
     console.error("工单详情加载失败:", error);
@@ -188,6 +223,9 @@ export function TicketDetailPage() {
             data={data}
             onPolish={ticketReplyPolishMutation.mutateAsync}
             onReplySubmit={ticketReplyMutation.mutateAsync}
+            onSummarize={() => {
+              void ticketSummaryMutation.mutateAsync();
+            }}
             polishErrorMessage={
               ticketReplyPolishMutation.isError
                 ? getTicketReplyPolishErrorMessage(ticketReplyPolishMutation.error)
@@ -200,6 +238,9 @@ export function TicketDetailPage() {
                 : undefined
             }
             replyIsSubmitting={ticketReplyMutation.isPending}
+            summary={summary}
+            summaryErrorMessage={summaryErrorMessage}
+            summaryIsSubmitting={ticketSummaryMutation.isPending}
           />
 
           <UpdateTicket

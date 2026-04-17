@@ -1,4 +1,4 @@
-import { type TicketDetail, TicketCategory, TicketStatus } from "core/email";
+import { type TicketDetail, type TicketSummaryResult, TicketCategory, TicketStatus } from "core/email";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -63,6 +63,10 @@ const ticketDetail: TicketDetail = {
   updatedAt: "2026-04-14T09:00:00.000Z",
 };
 
+function hasTextContent(text: string) {
+  return (_content: string, element: Element | null) => element?.textContent === text;
+}
+
 function renderTicketDetailPage(entry = "/tickets/7") {
   return renderWithQuery(
     <MemoryRouter initialEntries={[entry]}>
@@ -111,6 +115,7 @@ describe("TicketDetailPage", () => {
     expect(
       screen.getByText("We have reviewed your refund request and will follow up within one business day."),
     ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Summarize" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Polish" })).toBeVisible();
     expect(screen.getByRole("button", { name: "提交回复" })).toBeVisible();
     expect(screen.getByRole("link", { name: "返回工单列表" })).toHaveAttribute("href", "/tickets");
@@ -402,6 +407,53 @@ describe("TicketDetailPage", () => {
     );
   });
 
+  test("regenerates the ticket summary from body and reply history", async () => {
+    const firstSummary: TicketSummaryResult = {
+      bodyText:
+        "客户诉求：客户询问退款处理时间。\n当前进展：客服已确认收到请求，并承诺一个工作日内跟进。\n待跟进：继续确认退款处理状态并回复客户。",
+      generatedAt: "2026-04-14T12:00:00.000Z",
+    };
+    const secondSummary: TicketSummaryResult = {
+      bodyText:
+        "客户诉求：客户仍在等待退款时间线更新。\n当前进展：已有客服回复并说明正在跟进。\n待跟进：重新核对退款进度并给出下一次更新时间。",
+      generatedAt: "2026-04-14T12:05:00.000Z",
+    };
+
+    mockedApiClient.get.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7") {
+        return { data: ticketDetail };
+      }
+
+      if (url === "/api/agents") {
+        return { data: { agents } };
+      }
+
+      throw new Error(`Unhandled GET ${url}`);
+    });
+    mockedApiClient.post
+      .mockResolvedValueOnce({ data: firstSummary })
+      .mockResolvedValueOnce({ data: secondSummary });
+
+    renderTicketDetailPage();
+
+    await screen.findByText("Refund request follow-up");
+
+    fireEvent.click(screen.getByRole("button", { name: "Summarize" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.post).toHaveBeenCalledWith("/api/tickets/7/summary");
+    });
+    expect(await screen.findByText(hasTextContent(firstSummary.bodyText))).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Summarize" }));
+
+    await waitFor(() => {
+      expect(mockedApiClient.post).toHaveBeenNthCalledWith(2, "/api/tickets/7/summary");
+    });
+    expect(await screen.findByText(hasTextContent(secondSummary.bodyText))).toBeVisible();
+    expect(screen.queryByText(hasTextContent(firstSummary.bodyText))).not.toBeInTheDocument();
+  });
+
   test("disables submit for empty replies", async () => {
     mockedApiClient.get.mockImplementation(async (url) => {
       if (url === "/api/tickets/7") {
@@ -439,13 +491,19 @@ describe("TicketDetailPage", () => {
 
       throw new Error(`Unhandled GET ${url}`);
     });
-    mockedApiClient.post.mockRejectedValue({
-      isAxiosError: true,
-      response: {
-        data: {
-          error: "提交回复失败，请稍后再试。",
-        },
-      },
+    mockedApiClient.post.mockImplementation(async (url) => {
+      if (url === "/api/tickets/7/replies") {
+        throw {
+          isAxiosError: true,
+          response: {
+            data: {
+              error: "提交回复失败，请稍后再试。",
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unhandled POST ${url}`);
     });
 
     renderTicketDetailPage();

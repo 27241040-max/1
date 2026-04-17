@@ -88,6 +88,10 @@ export type TicketReplyPolishInput = z.infer<typeof ticketReplyPolishSchema>;
 export type TicketReplyPolishResult = {
   bodyText: string;
 };
+export type TicketSummaryResult = {
+  bodyText: string;
+  generatedAt: string;
+};
 export type TicketListMeta = {
   page: number;
   pageSize: number;

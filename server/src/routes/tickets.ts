@@ -11,6 +11,7 @@ import { Router } from "express";
 
 import { Prisma } from "../generated/prisma";
 import { polishTicketReply } from "../lib/ai/polish-ticket-reply";
+import { summarizeTicketThread } from "../lib/ai/summarize-ticket-thread";
 import { parsePositiveIntParam } from "../lib/route-params";
 import { getIssueMessage } from "../lib/validation";
 
@@ -357,5 +358,32 @@ ticketsRouter.post("/:id/replies/polish", async (req, res) => {
   } catch (error) {
     console.error("润色回复失败:", error);
     res.status(500).json({ error: "润色回复失败，请稍后再试。" });
+  }
+});
+
+ticketsRouter.post("/:id/summary", async (req, res) => {
+  const ticketId = parsePositiveIntParam(req.params.id);
+
+  if (!ticketId) {
+    res.status(400).json({ error: "工单 ID 无效。" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: ticketDetailSelect,
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "工单不存在。" });
+    return;
+  }
+
+  try {
+    const summary = await summarizeTicketThread(ticket);
+    res.json(summary);
+  } catch (error) {
+    console.error("生成工单摘要失败:", error);
+    res.status(500).json({ error: "生成摘要失败，请稍后再试。" });
   }
 });

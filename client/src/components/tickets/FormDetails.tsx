@@ -3,6 +3,7 @@ import type {
   TicketReplyCreateInput,
   TicketReplyPolishInput,
   TicketReplyPolishResult,
+  TicketSummaryResult,
 } from "core/email";
 
 import { TicketDetail as TicketDetailSection } from "@/components/tickets/TicketDetail";
@@ -11,26 +12,40 @@ import { TicketReplyThread } from "@/components/tickets/TicketReplyThread";
 
 type FormDetailsProps = {
   data: TicketDetail;
+  onSummarize: () => void;
   polishErrorMessage?: string;
   polishIsSubmitting: boolean;
   replyErrorMessage?: string;
   replyIsSubmitting: boolean;
   onPolish: (values: TicketReplyPolishInput) => Promise<TicketReplyPolishResult>;
   onReplySubmit: (values: TicketReplyCreateInput) => Promise<unknown>;
+  summary: TicketSummaryResult | null;
+  summaryErrorMessage?: string;
+  summaryIsSubmitting: boolean;
 };
 
 export function FormDetails({
   data,
+  onSummarize,
   polishErrorMessage,
   polishIsSubmitting,
   replyErrorMessage,
   replyIsSubmitting,
   onPolish,
   onReplySubmit,
+  summary,
+  summaryErrorMessage,
+  summaryIsSubmitting,
 }: FormDetailsProps) {
   return (
     <div className="grid gap-5">
-      <TicketDetailSection ticket={data} />
+      <TicketDetailSection
+        isSummarizing={summaryIsSubmitting}
+        onSummarize={onSummarize}
+        summary={summary}
+        summaryErrorMessage={summaryErrorMessage}
+        ticket={data}
+      />
       <TicketReplyThread replies={data.replies ?? []} />
 
       <div className="grid gap-4 rounded-[20px] border border-border/70 bg-card p-5 shadow-sm">
