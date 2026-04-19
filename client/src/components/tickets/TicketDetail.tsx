@@ -2,7 +2,7 @@ import type {
   TicketDetail as TicketDetailData,
   TicketSummaryResult,
 } from "core/email";
-import { SparklesIcon } from "lucide-react";
+import { SparklesIcon, UserRoundIcon } from "lucide-react";
 
 import { formatTicketDate, getTicketStatusLabel } from "@/components/tickets/ticket-display";
 import { Button } from "@/components/ui/button";
@@ -23,49 +23,63 @@ export function TicketDetail({
   summaryErrorMessage,
   ticket,
 }: TicketDetailProps) {
-  const wasAutoResolved = ticket.replies.some((reply) => reply.source === "ai_auto_resolution");
+  const replies = ticket.replies ?? [];
+  const wasAutoResolved = replies.some((reply) => reply.source === "ai_auto_resolution");
 
   return (
     <>
-      <div className="grid gap-1.5">
-        <h2 className="text-3xl font-semibold tracking-[-0.04em] text-card-foreground">
-          {ticket.subject}
-        </h2>
-        <p className="text-sm text-muted-foreground">工单 #{ticket.id}</p>
+      <div className="grid min-w-0 gap-4 rounded-[26px] border border-border/75 bg-accent/35 px-5 py-5">
+        <div className="grid min-w-0 gap-1.5">
+          <span className="text-[0.72rem] font-medium uppercase tracking-[0.22em] text-primary">
+            Ticket Profile
+          </span>
+          <h2 className="break-words text-3xl font-semibold tracking-[-0.05em] text-card-foreground">
+            {ticket.subject}
+          </h2>
+          <p className="text-sm text-muted-foreground">工单 #{ticket.id}</p>
+        </div>
+
+        <div className="grid min-w-0 gap-2 text-sm md:grid-cols-2">
+          <p className="break-words [overflow-wrap:anywhere] text-card-foreground">
+            <span className="text-muted-foreground">客户:</span>{" "}
+            {ticket.customer.name} ({ticket.customer.email})
+          </p>
+          <p className="break-words [overflow-wrap:anywhere] text-card-foreground">
+            <span className="text-muted-foreground">当前状态:</span>{" "}
+            {getTicketStatusLabel(ticket.status)}
+          </p>
+          <p className="break-words [overflow-wrap:anywhere] text-card-foreground">
+            <span className="text-muted-foreground">创建时间:</span>{" "}
+            {formatTicketDate(ticket.createdAt)}
+          </p>
+          <p className="break-words [overflow-wrap:anywhere] text-card-foreground">
+            <span className="text-muted-foreground">更新时间:</span>{" "}
+            {formatTicketDate(ticket.updatedAt)}
+          </p>
+        </div>
       </div>
 
-      <div className="grid gap-2 text-sm">
-        <p className="text-card-foreground">
-          <span className="text-muted-foreground">客户:</span>{" "}
-          {ticket.customer.name} ({ticket.customer.email})
-        </p>
-        <p className="text-card-foreground">
-          <span className="text-muted-foreground">当前状态:</span>{" "}
-          {getTicketStatusLabel(ticket.status)}
-        </p>
-        <p className="text-card-foreground">
-          <span className="text-muted-foreground">创建时间:</span>{" "}
-          {formatTicketDate(ticket.createdAt)}
-        </p>
-        <p className="text-card-foreground">
-          <span className="text-muted-foreground">更新时间:</span>{" "}
-          {formatTicketDate(ticket.updatedAt)}
-        </p>
-      </div>
-
-      <div className="grid gap-3 rounded-[20px] border border-border/70 bg-card p-5 shadow-sm">
+      <div className="grid min-w-0 gap-3 rounded-[24px] border border-border/70 bg-background/64 p-5">
         <span className="text-base font-semibold text-card-foreground">
           正文
         </span>
-        <span className="text-sm text-muted-foreground">
-          来自 {ticket.customer.name}
-        </span>
-        <p className="whitespace-pre-wrap text-sm leading-7 text-card-foreground">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"
+          >
+            <UserRoundIcon className="size-4" />
+          </span>
+          <span className="break-words [overflow-wrap:anywhere] text-sm text-muted-foreground">
+            来自 {ticket.customer.name}
+          </span>
+        </div>
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7 text-card-foreground">
           {ticket.bodyText}
         </p>
 
         {ticket.status === "resolved" && wasAutoResolved ? (
-          <p className="rounded-2xl border border-border/70 bg-muted/25 px-4 py-3 text-sm text-muted-foreground">
+          <p className="rounded-2xl border border-border/70 bg-accent/45 px-4 py-3 text-sm text-muted-foreground">
             该工单已由知识库自动处理，并已生成系统回复。
           </p>
         ) : null}
@@ -90,7 +104,7 @@ export function TicketDetail({
         ) : null}
 
         {summary ? (
-          <div className="grid gap-2 rounded-2xl border border-border/70 bg-background/60 px-4 py-4">
+          <div className="grid gap-2 rounded-2xl border border-border/70 bg-card px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-medium text-card-foreground">
                 摘要
@@ -99,7 +113,7 @@ export function TicketDetail({
                 {formatTicketDate(summary.generatedAt)}
               </span>
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-7 text-card-foreground">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7 text-card-foreground">
               {summary.bodyText}
             </p>
           </div>

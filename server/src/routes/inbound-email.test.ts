@@ -17,7 +17,9 @@ const {
     },
     ticket: {
       create: vi.fn(),
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
   },
   getOptionalEnvMock: vi.fn(() => "test-secret"),
@@ -113,6 +115,7 @@ describe("inboundEmailRouter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.ticket.findUnique.mockResolvedValue(null);
+    prismaMock.ticket.findFirst.mockResolvedValue(null);
     prismaMock.customer.findUnique.mockResolvedValue(null);
     prismaMock.customer.create.mockResolvedValue({
       email: "customer@example.com",
@@ -121,6 +124,9 @@ describe("inboundEmailRouter", () => {
     });
     prismaMock.ticket.create.mockResolvedValue({
       category: "general",
+      id: 11,
+    });
+    prismaMock.ticket.update.mockResolvedValue({
       id: 11,
     });
     getAiAgentUserOrThrowMock.mockResolvedValue({
@@ -238,5 +244,61 @@ describe("inboundEmailRouter", () => {
         id: true,
       },
     });
+  });
+
+  test("threads inbound replies onto an existing ticket when headers reference the original message", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue({
+      id: 42,
+      status: "resolved",
+    });
+
+    const response = await postSendgridInboundEmail({
+      from: "Customer Example <customer@example.com>",
+      headers: [
+        "Message-ID: <message-4@example.com>",
+        "In-Reply-To: <agent-reply@example.com>",
+        "References: <root-message@example.com> <agent-reply@example.com>",
+      ].join("\r\n"),
+      subject: "Re: Need help from SendGrid",
+      text: "Following up on the original thread.",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      created: false,
+      threaded: true,
+      ticketId: 42,
+    });
+    expect(prismaMock.ticket.findFirst).toHaveBeenCalledWith({
+      where: {
+        externalMessageId: {
+          in: ["<agent-reply@example.com>", "<root-message@example.com>"],
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+    expect(prismaMock.ticket.update).toHaveBeenCalledWith({
+      where: {
+        id: 42,
+      },
+      data: {
+        replies: {
+          create: {
+            authorLabel: "Customer",
+            bodyText: "Following up on the original thread.",
+            source: "agent",
+          },
+        },
+        resolvedAt: null,
+        status: "open",
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(prismaMock.ticket.create).not.toHaveBeenCalled();
   });
 });

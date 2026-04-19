@@ -73,7 +73,7 @@ function SortableHeader({
 
   return (
     <Button
-      className="-ml-2 h-auto px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+      className="-ml-2 h-auto rounded-full px-2 py-1 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground"
       disabled={disabled}
       onClick={() => onSortingChange(columnId)}
       size="sm"
@@ -208,7 +208,7 @@ export function TicketsTable({
     <Table>
       <TableHeader>
         {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow className="border-b border-border/70 hover:bg-transparent" key={headerGroup.id}>
+          <TableRow className="border-b border-border/70 bg-muted/30 hover:bg-muted/30" key={headerGroup.id}>
             {headerGroup.headers.map((header) => {
               const meta = header.column.columnDef.meta as
                 | { cellClassName?: string; headerClassName?: string }
@@ -227,7 +227,7 @@ export function TicketsTable({
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow className="border-b border-border/60 hover:bg-transparent" key={row.id}>
+          <TableRow className="border-b border-border/60 transition-colors hover:bg-accent/35" key={row.id}>
             {row.getVisibleCells().map((cell) => {
               const meta = cell.column.columnDef.meta as
                 | { cellClassName?: string; headerClassName?: string }

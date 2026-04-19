@@ -214,7 +214,7 @@ export function TicketDetailPage() {
   const summaryErrorMessage =
     summaryState.ticketId === ticketId ? summaryState.errorMessage : undefined;
   return (
-    <section className="mx-auto grid max-w-5xl gap-4 px-2">
+    <section className="mx-auto grid max-w-6xl gap-4 px-1">
       <div>
         <Button asChild className="-ml-2 text-muted-foreground" type="button" variant="ghost">
           <Link to="/tickets">
@@ -227,14 +227,14 @@ export function TicketDetailPage() {
       {isPending ? (
         <TicketDetailSkeleton />
       ) : isError ? (
-        <article className="grid gap-3 rounded-[28px] border border-border bg-card p-6 shadow-sm">
+        <article className="grid gap-3 rounded-[28px] border border-border/80 bg-card/94 p-6 shadow-[0_18px_48px_rgba(62,48,34,0.08)]">
           <h2 className="text-xl font-semibold tracking-tight text-card-foreground">
             {errorState === "not_found" ? "工单不存在" : "工单详情加载失败"}
           </h2>
           <p className="text-sm text-muted-foreground">{getTicketDetailErrorMessage(error)}</p>
         </article>
       ) : data ? (
-        <article className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_160px] lg:items-start lg:gap-8">
+        <article className="grid gap-6 rounded-[32px] border border-border/80 bg-card/94 p-4 shadow-[0_20px_55px_rgba(62,48,34,0.08)] md:p-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-9">
           <FormDetails
             data={data}
             onPolish={ticketReplyPolishMutation.mutateAsync}

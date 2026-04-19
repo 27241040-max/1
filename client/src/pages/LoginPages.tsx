@@ -112,7 +112,7 @@ export function LoginPages() {
 
   if (isPending) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,theme(colors.primary/8%),transparent_34%),linear-gradient(to_bottom,theme(colors.background),theme(colors.muted/35%))] px-4 py-10 text-foreground md:px-8">
+      <main className="min-h-screen bg-[radial-gradient(circle_at_top,theme(colors.brand/18%),transparent_34%),linear-gradient(to_bottom,theme(colors.background),theme(colors.muted/35%))] px-4 py-10 text-foreground md:px-8">
         <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center justify-center">
           <LoginStatusCard />
         </div>
@@ -121,13 +121,36 @@ export function LoginPages() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,theme(colors.primary/8%),transparent_34%),linear-gradient(to_bottom,theme(colors.background),theme(colors.muted/35%))] px-4 py-10 text-foreground md:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center justify-center">
-        <section className="flex w-full justify-center">
-          <Card className="w-full max-w-md border-border/70 bg-card/95 shadow-lg backdrop-blur">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,theme(colors.brand/18%),transparent_34%),linear-gradient(to_bottom,theme(colors.background),theme(colors.muted/35%))] px-4 py-10 text-foreground md:px-8">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.8fr)]">
+        <section className="hidden lg:grid lg:gap-6">
+          <div className="grid gap-3">
+            <span className="text-[0.72rem] font-medium uppercase tracking-[0.24em] text-primary">
+              Helpdesk Console
+            </span>
+            <h1 className="max-w-xl text-5xl font-semibold tracking-[-0.07em] text-foreground">
+              更克制、更专业的工单工作台。
+            </h1>
+            <p className="max-w-xl text-base leading-8 text-muted-foreground">
+              把客户上下文、自动化结果和人工回复放在同一块工作台里，让支持团队更快进入处理状态。
+            </p>
+          </div>
+          <div className="grid max-w-xl gap-3 md:grid-cols-2">
+            <div className="rounded-[24px] border border-border/75 bg-card/92 p-5 shadow-[0_18px_44px_rgba(62,48,34,0.08)]">
+              <span className="text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">Interface</span>
+              <strong className="mt-3 block text-xl tracking-[-0.05em] text-foreground">Editorial Ops</strong>
+            </div>
+            <div className="rounded-[24px] border border-border/75 bg-card/92 p-5 shadow-[0_18px_44px_rgba(62,48,34,0.08)]">
+              <span className="text-[0.7rem] uppercase tracking-[0.2em] text-muted-foreground">Access</span>
+              <strong className="mt-3 block text-xl tracking-[-0.05em] text-foreground">Secure Session</strong>
+            </div>
+          </div>
+        </section>
+        <section className="flex w-full justify-center lg:justify-end">
+          <Card className="w-full max-w-md border-border/70 bg-card/95 shadow-[0_24px_60px_rgba(62,48,34,0.14)] backdrop-blur">
             <CardHeader className="gap-2">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <div className="flex size-10 items-center justify-center rounded-full bg-brand/30 text-primary">
                   <ShieldCheckIcon className="size-5" />
                 </div>
                 <div>

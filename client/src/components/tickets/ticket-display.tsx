@@ -84,8 +84,9 @@ export function getTicketStatusClassName(status: TicketStatus) {
   switch (status) {
     case TicketStatus.new:
     case TicketStatus.processing:
-    case TicketStatus.open:
       return "border-transparent bg-primary text-primary-foreground";
+    case TicketStatus.open:
+      return "border-transparent bg-red-600 text-red-50";
     case TicketStatus.resolved:
       return "border-transparent bg-secondary text-secondary-foreground";
     case TicketStatus.closed:

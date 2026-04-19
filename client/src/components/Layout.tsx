@@ -31,16 +31,23 @@ export function Layout({ displayName, isAdmin }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen flex-col gap-3 p-3 md:p-4">
-        <header className="flex flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-2 shadow-sm md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-            <NavLink
-              className={appBrandLinkClass}
-              to="/"
-            >
-              Helpdesk
-            </NavLink>
-            <nav aria-label="Primary" className="flex items-center gap-2">
+      <div className="mx-auto flex min-h-screen max-w-[1500px] flex-col gap-4 px-3 py-3 md:px-5 md:py-5">
+        <header className="overflow-hidden rounded-[30px] border border-black/10 bg-panel text-panel-foreground shadow-[0_22px_60px_rgba(34,31,28,0.16)]">
+          <div className="px-5 py-4 md:px-7">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+                <NavLink className={appBrandLinkClass} to="/">
+                  <span className="inline-flex size-10 items-center justify-center rounded-full border border-white/12 bg-white/8 text-sm font-semibold tracking-[0.24em] text-brand">
+                    HD
+                  </span>
+                  <span className="flex flex-col">
+                    <span>Helpdesk</span>
+                    <span className="text-xs font-medium tracking-[0.24em] text-panel-foreground/55 uppercase">
+                      Editorial Ops Console
+                    </span>
+                  </span>
+                </NavLink>
+                <nav aria-label="Primary" className="flex flex-wrap items-center gap-2">
               <NavLink
                 className={({ isActive }) => getAppNavLinkClass(isActive)}
                 to="/tickets"
@@ -57,22 +64,29 @@ export function Layout({ displayName, isAdmin }: LayoutProps) {
               ) : null}
             </nav>
           </div>
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-1.5">
-            <div>
-              <span className="block text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                当前用户
-              </span>
-              <strong className="mt-1 block text-foreground">{displayName}</strong>
+              <div className="flex items-center gap-3 rounded-full border border-white/12 bg-white/7 px-3 py-2">
+                <div className="flex size-10 items-center justify-center rounded-full bg-brand text-sm font-semibold tracking-[0.18em] text-brand-foreground">
+                  {displayName.slice(0, 1).toUpperCase()}
+                </div>
+                <div>
+                  <span className="block text-[0.68rem] uppercase tracking-[0.22em] text-panel-muted">
+                    当前用户
+                  </span>
+                  <strong className="mt-0.5 block text-sm text-panel-foreground">{displayName}</strong>
+                </div>
+                <Button
+                  className="rounded-full border-white/14 bg-white/8 text-panel-foreground hover:bg-white/14"
+                  disabled={isSigningOut}
+                  onClick={() => {
+                    void handleSignOut();
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  {isSigningOut ? "退出中..." : "退出"}
+                </Button>
+              </div>
             </div>
-            <Button
-              disabled={isSigningOut}
-              onClick={() => {
-                void handleSignOut();
-              }}
-              type="button"
-            >
-              {isSigningOut ? "退出中..." : "退出"}
-            </Button>
           </div>
         </header>
         <main className="flex-1">

@@ -32,6 +32,48 @@ type SendgridInboundPayload = {
 
 const fallbackInboundSubject = "（无主题）";
 
+function extractHeaderValues(headers: string | undefined, headerName: string) {
+  if (!headers) {
+    return [];
+  }
+
+  return headers
+    .split(/\r?\n/)
+    .flatMap((line) => {
+      const separatorIndex = line.indexOf(":");
+
+      if (separatorIndex < 0) {
+        return [];
+      }
+
+      const name = line.slice(0, separatorIndex).trim().toLowerCase();
+
+      if (name !== headerName.toLowerCase()) {
+        return [];
+      }
+
+      return [line.slice(separatorIndex + 1).trim()];
+    })
+    .filter(Boolean);
+}
+
+function extractMessageIdTokens(value: string | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  const matches = value.match(/<[^>]+>/g);
+
+  if (matches && matches.length > 0) {
+    return matches.map((match) => match.trim()).filter(Boolean);
+  }
+
+  return value
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
 function parseSendgridMultipart(req: Request, res: Response, next: NextFunction) {
   const contentType = req.headers["content-type"] ?? "";
 
@@ -92,12 +134,14 @@ function parseInboundFromAddress(from: string) {
 }
 
 function extractMessageId(headers: string | undefined) {
-  if (!headers) {
-    return undefined;
-  }
+  return extractHeaderValues(headers, "message-id")[0]?.trim();
+}
 
-  const match = headers.match(/^message-id:\s*(.+)$/im);
-  return match?.[1]?.trim();
+function extractThreadMessageIds(headers: string | undefined) {
+  const inReplyTo = extractHeaderValues(headers, "in-reply-to").flatMap(extractMessageIdTokens);
+  const references = extractHeaderValues(headers, "references").flatMap(extractMessageIdTokens);
+
+  return Array.from(new Set([...inReplyTo, ...references]));
 }
 
 function normalizeInboundSubject(subject: string | undefined) {
@@ -121,10 +165,11 @@ function normalizeSendgridPayload(payload: SendgridInboundPayload): InboundEmail
       email: "",
       name: "",
     },
+    headers: payload.headers,
     messageId: extractMessageId(payload.headers),
     subject: normalizeInboundSubject(payload.subject),
     text: payload.text?.trim() || (payload.html ? normalizeHtmlToText(payload.html) : ""),
-  };
+  } as InboundEmailInput;
 }
 
 function normalizeUploadedFiles(files: Request["files"]) {
@@ -187,7 +232,8 @@ inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
     return;
   }
 
-  const result = inboundEmailSchema.safeParse(getInboundRequestPayload(req));
+  const inboundRequestPayload = getInboundRequestPayload(req);
+  const result = inboundEmailSchema.safeParse(inboundRequestPayload);
 
   if (!result.success) {
     res.status(400).json({ error: getIssueMessage(result.error) });
@@ -195,6 +241,14 @@ inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
   }
 
   const messageId = result.data.messageId?.trim();
+  const threadMessageIds =
+    inboundRequestPayload &&
+    typeof inboundRequestPayload === "object" &&
+    !Array.isArray(inboundRequestPayload) &&
+    "headers" in inboundRequestPayload &&
+    typeof inboundRequestPayload.headers === "string"
+      ? extractThreadMessageIds(inboundRequestPayload.headers)
+      : [];
 
   if (messageId) {
     const existing = await prisma.ticket.findUnique({
@@ -235,6 +289,50 @@ inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
           name: result.data.from.name,
         },
       });
+
+  if (threadMessageIds.length > 0) {
+    const existingThreadTicket = await prisma.ticket.findFirst({
+      where: {
+        externalMessageId: {
+          in: threadMessageIds,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (existingThreadTicket) {
+      await prisma.ticket.update({
+        where: {
+          id: existingThreadTicket.id,
+        },
+        data: {
+          replies: {
+            create: {
+              authorLabel: customer.name,
+              bodyText: result.data.text,
+              source: "agent",
+            },
+          },
+          ...(existingThreadTicket.status === TicketStatus.closed ||
+          existingThreadTicket.status === TicketStatus.resolved
+            ? {
+                resolvedAt: null,
+                status: TicketStatus.open,
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      res.json({ created: false, ticketId: existingThreadTicket.id, threaded: true });
+      return;
+    }
+  }
   const aiAgent = await getAiAgentUserOrThrow();
 
   const ticket = await prisma.ticket.create({

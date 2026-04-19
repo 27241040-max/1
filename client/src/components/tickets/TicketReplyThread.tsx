@@ -1,4 +1,5 @@
 import type { TicketReply } from "core/email";
+import { BotIcon, HeadsetIcon, UserRoundIcon } from "lucide-react";
 
 import { formatTicketDate } from "@/components/tickets/ticket-display";
 
@@ -6,9 +7,42 @@ type TicketReplyThreadProps = {
   replies: TicketReply[];
 };
 
+function ReplyAuthorIcon({ reply }: { reply: TicketReply }) {
+  if (reply.source === "agent" && !reply.author) {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"
+      >
+        <UserRoundIcon className="size-4" />
+      </span>
+    );
+  }
+
+  if (reply.source === "ai_auto_resolution") {
+    return (
+      <span
+        aria-hidden="true"
+        className="flex size-10 items-center justify-center rounded-full bg-primary/12 text-primary"
+      >
+        <BotIcon className="size-4" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"
+    >
+      <HeadsetIcon className="size-4" />
+    </span>
+  );
+}
+
 export function TicketReplyThread({ replies }: TicketReplyThreadProps) {
   return (
-    <div className="grid gap-3 rounded-[20px] border border-border/70 bg-card p-5 shadow-sm">
+    <div className="grid min-w-0 gap-3 rounded-[24px] border border-border/70 bg-background/64 p-5">
       <div className="grid gap-1">
         <span className="text-base font-semibold text-card-foreground">
           回复线程
@@ -23,28 +57,31 @@ export function TicketReplyThread({ replies }: TicketReplyThreadProps) {
           暂无回复
         </p>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid min-w-0 gap-3">
           {replies.map((reply) => (
             <article
-              className="grid gap-2 rounded-2xl border border-border/70 bg-background/60 px-4 py-4"
+              className="grid min-w-0 gap-2 rounded-2xl border border-border/70 bg-card px-4 py-4"
               key={reply.id}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="grid gap-0.5">
-                  <span className="text-sm font-medium text-card-foreground">
-                    {reply.authorLabel}
-                  </span>
-                  {reply.author?.email ? (
-                    <span className="text-xs text-muted-foreground">
-                      {reply.author.email}
+                <div className="flex min-w-0 items-start gap-3">
+                  <ReplyAuthorIcon reply={reply} />
+                  <div className="grid min-w-0 gap-0.5">
+                    <span className="break-words text-sm font-medium text-card-foreground">
+                      {reply.authorLabel}
                     </span>
-                  ) : null}
+                    {reply.author?.email ? (
+                      <span className="break-words [overflow-wrap:anywhere] text-xs text-muted-foreground">
+                        {reply.author.email}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <span className="text-xs text-muted-foreground">
                   {formatTicketDate(reply.createdAt)}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm leading-7 text-card-foreground">
+              <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7 text-card-foreground">
                 {reply.bodyText}
               </p>
             </article>

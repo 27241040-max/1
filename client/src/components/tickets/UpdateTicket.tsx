@@ -46,9 +46,9 @@ function DetailItem({
   value: ReactNode;
 }) {
   return (
-    <div className="grid gap-1">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="text-sm text-card-foreground">{value}</div>
+    <div className="grid min-w-0 gap-2 rounded-[22px] border border-border/70 bg-background/72 p-4">
+      <span className="text-[0.72rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+      <div className="min-w-0 text-sm text-card-foreground">{value}</div>
     </div>
   );
 }
@@ -69,7 +69,7 @@ export function UpdateTicket({
 }: UpdateTicketProps) {
   return (
     <>
-      <aside className="grid gap-4 lg:pt-1">
+      <aside className="grid min-w-0 gap-4 lg:pt-1">
         <DetailItem
           label="当前状态"
           value={getTicketStatusLabel(ticket.status)}

@@ -7,6 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { apiClient } from "../lib/api-client";
 
+type HealthStatus = {
+  service: string;
+  status: string;
+};
+
 function getErrorMessage(error: unknown, fallbackMessage: string) {
   if (axios.isAxiosError<{ error?: string }>(error)) {
     return error.response?.data?.error ?? fallbackMessage;
@@ -58,8 +63,8 @@ function TicketVolumeChart({
 
   if (chartData.length === 0) {
     return (
-      <Card className="border border-border shadow-sm">
-        <CardHeader>
+      <Card className="border border-border/80 bg-card/92 shadow-[0_16px_40px_rgba(62,48,34,0.07)]">
+        <CardHeader className="border-b border-border/60 pb-5">
           <CardTitle>过去 30 天工单量</CardTitle>
           <CardDescription>按天统计最近 30 天收到的工单总数</CardDescription>
         </CardHeader>
@@ -71,8 +76,8 @@ function TicketVolumeChart({
   }
 
   return (
-    <Card className="border border-border shadow-sm">
-      <CardHeader>
+    <Card className="border border-border/80 bg-card/92 shadow-[0_16px_40px_rgba(62,48,34,0.07)]">
+      <CardHeader className="border-b border-border/60 pb-5">
         <CardTitle>过去 30 天工单量</CardTitle>
         <CardDescription>按天统计最近 30 天收到的工单总数</CardDescription>
       </CardHeader>
@@ -89,7 +94,7 @@ function TicketVolumeChart({
                 <div className="flex h-56 items-end">
                   <div
                     aria-label={`${formatChartDayLabel(item.date)}: ${item.totalTickets} tickets`}
-                    className="w-full rounded-t-md bg-primary/80 transition-colors hover:bg-primary"
+                    className="w-full rounded-t-xl bg-[linear-gradient(180deg,color-mix(in_oklab,var(--brand)_72%,white_28%),var(--primary))] transition-all duration-200 hover:opacity-90"
                     style={{ height }}
                     title={`${formatChartDayLabel(item.date)}: ${item.totalTickets}`}
                   />
@@ -111,7 +116,7 @@ function TicketVolumeChart({
 
 function DashboardMetricSkeleton() {
   return (
-    <Card className="border border-border shadow-sm">
+    <Card className="border border-border/80 bg-card/92 shadow-[0_16px_40px_rgba(62,48,34,0.07)]">
       <CardHeader>
         <Skeleton className="h-4 w-24" />
       </CardHeader>
@@ -133,12 +138,14 @@ function DashboardMetric({
   value: string;
 }) {
   return (
-    <Card className="border border-border shadow-sm">
-      <CardHeader>
-        <CardDescription>{title}</CardDescription>
+    <Card className="border border-border/80 bg-card/92 shadow-[0_16px_40px_rgba(62,48,34,0.07)]">
+      <CardHeader className="gap-3 border-b border-border/60 pb-5">
+        <CardDescription className="text-[0.72rem] font-medium tracking-[0.22em] uppercase">
+          {title}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <CardTitle className="text-3xl tracking-[-0.04em]">{value}</CardTitle>
+        <CardTitle className="text-4xl tracking-[-0.06em]">{value}</CardTitle>
         <p className="text-sm leading-6 text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
@@ -146,6 +153,15 @@ function DashboardMetric({
 }
 
 export function Homepage() {
+  const {
+    data: healthData,
+  } = useQuery({
+    queryKey: ["health"],
+    queryFn: async () => {
+      const response = await apiClient.get<HealthStatus>("/api/health");
+      return response.data;
+    },
+  });
   const {
     data: statsData,
     isPending: isStatsPending,
@@ -165,12 +181,13 @@ export function Homepage() {
 
   return (
     <section className="grid gap-6">
-      <div className="grid gap-4">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">工单仪表盘</h3>
-          <p className="text-sm text-muted-foreground">默认展示全部历史累计指标</p>
-        </div>
-
+      <div className="grid gap-5">
+        <h2 className="sr-only">AI Helpdesk 主控台</h2>
+        <p className="sr-only">
+          {healthData
+            ? `服务正常运行 (${healthData.service}: ${healthData.status.toUpperCase()})`
+            : "正在检查服务状态"}
+        </p>
         {isStatsPending ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {Array.from({ length: 5 }).map((_, index) => (

@@ -236,7 +236,7 @@ export function UsersPage() {
   return (
     <>
       <section className="grid gap-6">
-        <div className="grid gap-6">
+        <div className="grid gap-6 rounded-[30px] border border-border/80 bg-card/94 p-5 shadow-[0_18px_48px_rgba(62,48,34,0.08)] md:p-7">
           <div className="border-b border-border/70 pb-5">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
               <Badge className="w-fit uppercase" variant="secondary">
@@ -272,7 +272,7 @@ export function UsersPage() {
                 暂无用户数据。
               </div>
             ) : (
-              <div className="border-t border-border/70">
+              <div className="overflow-hidden rounded-[26px] border border-border/75 bg-background/72">
                 <UsersTable onDelete={handleDeleteClick} onEdit={handleEditClick} users={users} />
               </div>
             )}

@@ -172,10 +172,13 @@ export function TicketsPage() {
   return (
     <section className="grid gap-6">
       <div className="grid gap-6">
-        <div className="grid gap-4">
-          <div className="grid gap-4 pb-4">
+        <div className="grid gap-4 rounded-[30px] border border-border/80 bg-card/94 p-5 shadow-[0_18px_48px_rgba(62,48,34,0.08)] md:p-7">
+          <div className="grid gap-4 border-b border-border/70 pb-5">
             <div className="flex flex-col gap-1">
-              <h3 className="text-lg font-semibold tracking-tight text-foreground">
+              <span className="text-[0.72rem] font-medium uppercase tracking-[0.22em] text-primary">
+                Queue View
+              </span>
+              <h3 className="text-2xl font-semibold tracking-[-0.05em] text-foreground md:text-[2rem]">
                 工单列表
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -192,7 +195,7 @@ export function TicketsPage() {
                 <div className="relative">
                   <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    className="h-10 rounded-xl border-border/80 bg-background pl-9 shadow-sm"
+                    className="h-11 rounded-2xl border-border/80 bg-background/80 pl-9 shadow-none"
                     onChange={(event) =>
                       handleKeywordChange(event.target.value)
                     }
@@ -208,7 +211,7 @@ export function TicketsPage() {
                   状态
                 </span>
                 <select
-                  className="h-10 rounded-xl border border-border/80 bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                  className="h-11 rounded-2xl border border-border/80 bg-background/80 px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
                   onChange={(event) => handleStatusChange(event.target.value)}
                   value={filters.status ?? "all"}
                 >
@@ -224,7 +227,7 @@ export function TicketsPage() {
                   分类
                 </span>
                 <select
-                  className="h-10 rounded-xl border border-border/80 bg-background px-3 text-sm shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+                  className="h-11 rounded-2xl border border-border/80 bg-background/80 px-3 text-sm shadow-none outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
                   onChange={(event) => handleCategoryChange(event.target.value)}
                   value={filters.category ?? "all"}
                 >
@@ -238,7 +241,7 @@ export function TicketsPage() {
               </label>
 
               <Button
-                className="h-10 self-end rounded-xl px-3"
+                className="h-11 self-end rounded-full px-4"
                 disabled={!hasActiveFilters}
                 onClick={resetFilters}
                 type="button"
@@ -253,29 +256,31 @@ export function TicketsPage() {
           {isPending ? (
             <TicketsTableSkeleton />
           ) : isError ? (
-            <div className="border-t border-border/70 pt-4 text-sm text-destructive">
+            <div className="pt-1 text-sm text-destructive">
               {getTicketsErrorMessage(error)}
             </div>
           ) : tickets.length === 0 ? (
-            <div className="border-t border-border/70 pt-4 text-sm text-muted-foreground">
+            <div className="pt-1 text-sm text-muted-foreground">
               暂无工单数据。
             </div>
           ) : (
-            <div className="grid gap-4 border-t border-border/70 pt-4">
-              <TicketsTable
-                isSortingPending={isFetching}
-                onSortingChange={handleSortingChange}
-                sorting={sorting}
-                tickets={tickets}
-              />
+            <div className="grid gap-4">
+              <div className="overflow-hidden rounded-[26px] border border-border/75 bg-background/72">
+                <TicketsTable
+                  isSortingPending={isFetching}
+                  onSortingChange={handleSortingChange}
+                  sorting={sorting}
+                  tickets={tickets}
+                />
+              </div>
 
-              <div className="flex flex-col gap-3 border-t border-border/70 pt-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
                 <p>
                   显示第 {(meta.page - 1) * meta.pageSize + 1} -{" "}
                   {Math.min(meta.page * meta.pageSize, meta.total)} 条，共{" "}
                   {meta.total} 条
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded-full border border-border/75 bg-background/75 px-2 py-2">
                   <Button
                     disabled={meta.page <= 1 || isFetching}
                     onClick={() => setPage(1)}
