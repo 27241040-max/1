@@ -45,6 +45,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 app.use("/api/agents", agentsRouter);
 app.use("/api/inbound/email", inboundEmailRouter);
+app.use("/api/webhooks/inbound-email", inboundEmailRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/users", usersRouter);
 

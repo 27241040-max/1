@@ -77,6 +77,38 @@ async function postInboundEmail(body: Record<string, unknown>) {
   }
 }
 
+async function postSendgridInboundEmail(fields: Record<string, string>) {
+  const server = createApp().listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const formData = new FormData();
+
+    for (const [key, value] of Object.entries(fields)) {
+      formData.append(key, value);
+    }
+
+    return await fetch(`http://127.0.0.1:${port}/`, {
+      method: "POST",
+      headers: {
+        "x-inbound-email-secret": "test-secret",
+      },
+      body: formData,
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+}
+
 describe("inboundEmailRouter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -136,5 +168,44 @@ describe("inboundEmailRouter", () => {
       },
     });
     expect(queueTicketAutoClassificationMock).toHaveBeenCalledWith(11);
+  });
+
+  test("accepts SendGrid inbound parse multipart payloads", async () => {
+    const response = await postSendgridInboundEmail({
+      from: "Customer Example <customer@example.com>",
+      headers: "Message-ID: <message-2@example.com>\r\nX-Test: 1",
+      subject: "Need help from SendGrid",
+      text: "Please help from multipart",
+    });
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      created: true,
+      ticketId: 11,
+    });
+    expect(prismaMock.ticket.findUnique).toHaveBeenCalledWith({
+      where: {
+        externalMessageId: "<message-2@example.com>",
+      },
+      select: {
+        id: true,
+      },
+    });
+    expect(prismaMock.ticket.create).toHaveBeenCalledWith({
+      data: {
+        assignedUserId: "ai-agent-id",
+        bodyText: "Please help from multipart",
+        category: undefined,
+        customerId: 5,
+        externalMessageId: "<message-2@example.com>",
+        source: "email",
+        status: "new",
+        subject: "Need help from SendGrid",
+      },
+      select: {
+        category: true,
+        id: true,
+      },
+    });
   });
 });

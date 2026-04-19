@@ -1,5 +1,11 @@
-import { inboundEmailSchema, type InboundEmailInput } from "core/email";
-import { Router } from "express";
+import {
+  TicketCategory as CoreTicketCategory,
+  inboundEmailSchema,
+  type InboundEmailInput,
+} from "core/email";
+import formidableMiddleware from "express-formidable";
+import { Router, type NextFunction, type Request, type Response } from "express";
+import Parse = require("@sendgrid/inbound-mail-parser");
 
 import { getOptionalEnv } from "../config";
 import { getAiAgentUserOrThrow } from "../lib/ai-agent";
@@ -10,6 +16,30 @@ import { prisma } from "../prisma";
 
 export const inboundEmailRouter = Router();
 const inboundEmailSecret = getOptionalEnv("INBOUND_EMAIL_SECRET");
+const sendgridMultipartParser = formidableMiddleware({
+  encoding: "utf-8",
+  multiples: true,
+});
+
+type SendgridInboundPayload = {
+  category?: string;
+  from?: string;
+  headers?: string;
+  html?: string;
+  subject?: string;
+  text?: string;
+};
+
+function parseSendgridMultipart(req: Request, res: Response, next: NextFunction) {
+  const contentType = req.headers["content-type"] ?? "";
+
+  if (contentType.includes("multipart/form-data")) {
+    sendgridMultipartParser(req, res, next);
+    return;
+  }
+
+  next();
+}
 
 function normalizeCategory(category: InboundEmailInput["category"]) {
   if (!category) {
@@ -26,20 +56,118 @@ function normalizeCategory(category: InboundEmailInput["category"]) {
   }
 }
 
-inboundEmailRouter.post("/", async (req, res) => {
+function normalizeHtmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function parseInboundFromAddress(from: string) {
+  const trimmed = from.trim();
+  const match = trimmed.match(/^(?:"?([^"]*?)"?\s*)?<([^<>]+)>$/);
+
+  if (match) {
+    const email = match[2].trim().toLowerCase();
+    const fallbackName = email.split("@")[0] || email;
+
+    return {
+      email,
+      name: match[1]?.trim() || fallbackName,
+    };
+  }
+
+  const normalizedEmail = trimmed.toLowerCase();
+  const fallbackName = normalizedEmail.split("@")[0] || normalizedEmail;
+  return {
+    email: normalizedEmail,
+    name: fallbackName,
+  };
+}
+
+function extractMessageId(headers: string | undefined) {
+  if (!headers) {
+    return undefined;
+  }
+
+  const match = headers.match(/^message-id:\s*(.+)$/im);
+  return match?.[1]?.trim();
+}
+
+function normalizeSendgridPayload(payload: SendgridInboundPayload): InboundEmailInput {
+  const from = payload.from ? parseInboundFromAddress(payload.from) : undefined;
+
+  return {
+    category:
+      payload.category === "general"
+        ? CoreTicketCategory.general
+        : payload.category === "technical"
+          ? CoreTicketCategory.technical
+          : payload.category === "refund_request"
+            ? CoreTicketCategory.refundRequest
+            : undefined,
+    from: from ?? {
+      email: "",
+      name: "",
+    },
+    messageId: extractMessageId(payload.headers),
+    subject: payload.subject?.trim() ?? "",
+    text: payload.text?.trim() || (payload.html ? normalizeHtmlToText(payload.html) : ""),
+  };
+}
+
+function normalizeUploadedFiles(files: Request["files"]) {
+  if (!files) {
+    return [];
+  }
+
+  return Object.values(files).flatMap((file) => {
+    if (!file) {
+      return [];
+    }
+
+    return Array.isArray(file) ? file : [file];
+  });
+}
+
+function getInboundRequestPayload(req: Request): unknown {
+  if ((req.headers["content-type"] ?? "").includes("multipart/form-data")) {
+    const parser = new Parse(
+      {
+        keys: ["category", "from", "headers", "html", "subject", "text"],
+      },
+      {
+        body: req.fields ?? {},
+        files: normalizeUploadedFiles(req.files),
+      },
+    );
+
+    return normalizeSendgridPayload(parser.keyValues() as SendgridInboundPayload);
+  }
+
+  return req.body ?? {};
+}
+
+inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
   if (!inboundEmailSecret) {
     res.status(500).json({ error: "Inbound email secret is not configured." });
     return;
   }
 
-  const providedSecret = req.header("x-inbound-email-secret")?.trim();
+  const providedSecret =
+    req.header("x-inbound-email-secret")?.trim() ??
+    (typeof req.query.secret === "string" ? req.query.secret.trim() : undefined);
 
   if (!providedSecret || providedSecret !== inboundEmailSecret) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const result = inboundEmailSchema.safeParse(req.body ?? {});
+  const result = inboundEmailSchema.safeParse(getInboundRequestPayload(req));
 
   if (!result.success) {
     res.status(400).json({ error: getIssueMessage(result.error) });
