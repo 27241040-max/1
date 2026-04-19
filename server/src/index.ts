@@ -1,6 +1,8 @@
 import "dotenv/config";
+import "./instrument";
 
 import type { ErrorRequestHandler } from "express";
+import * as Sentry from "@sentry/node";
 import express from 'express';
 import cors from 'cors';
 import { APIError } from "better-call";
@@ -48,6 +50,8 @@ app.use("/api/inbound/email", inboundEmailRouter);
 app.use("/api/webhooks/inbound-email", inboundEmailRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/users", usersRouter);
+
+Sentry.setupExpressErrorHandler(app);
 
 const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   if (res.headersSent) {
@@ -123,5 +127,6 @@ async function startServer() {
 
 void startServer().catch((error) => {
   console.error("Server startup failed:", error);
+  Sentry.captureException(error);
   process.exit(1);
 });

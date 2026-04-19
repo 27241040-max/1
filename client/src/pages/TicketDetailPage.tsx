@@ -11,7 +11,7 @@ import {
   TicketStatus,
   type TicketStatus as TicketStatusValue,
 } from "core/email";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { FormDetails } from "@/components/tickets/FormDetails";
@@ -24,6 +24,12 @@ import { apiClient } from "../lib/api-client";
 
 const unassignedAgentValue = "__unassigned__";
 const uncategorizedValue = "__uncategorized__";
+
+type TicketSummaryViewState = {
+  errorMessage?: string;
+  result: TicketSummaryResult | null;
+  ticketId?: string;
+};
 
 function getEditableTicketStatus(status: TicketStatusValue) {
   if (status === TicketStatus.new || status === TicketStatus.processing) {
@@ -100,8 +106,7 @@ export function TicketDetailPage() {
   const [assignmentDraft, setAssignmentDraft] = useState<string | null>(null);
   const [statusDraft, setStatusDraft] = useState<TicketStatusValue | null>(null);
   const [categoryDraft, setCategoryDraft] = useState<string | null>(null);
-  const [summary, setSummary] = useState<TicketSummaryResult | null>(null);
-  const [summaryErrorMessage, setSummaryErrorMessage] = useState<string | undefined>(undefined);
+  const [summaryState, setSummaryState] = useState<TicketSummaryViewState>({ result: null });
 
   const { data, isPending, isError, error } = useQuery({
     enabled: Boolean(ticketId),
@@ -156,8 +161,7 @@ export function TicketDetailPage() {
       return response.data;
     },
     onSuccess: (updatedTicket) => {
-      setSummary(null);
-      setSummaryErrorMessage(undefined);
+      setSummaryState({ result: null, ticketId });
       queryClient.setQueryData(["ticket", ticketId], updatedTicket);
       void queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
@@ -179,21 +183,19 @@ export function TicketDetailPage() {
       return response.data;
     },
     onMutate: () => {
-      setSummary(null);
-      setSummaryErrorMessage(undefined);
+      setSummaryState({ result: null, ticketId });
     },
     onSuccess: (result) => {
-      setSummary(result);
+      setSummaryState({ result, ticketId });
     },
     onError: (error) => {
-      setSummaryErrorMessage(getTicketSummaryErrorMessage(error));
+      setSummaryState({
+        result: null,
+        ticketId,
+        errorMessage: getTicketSummaryErrorMessage(error),
+      });
     },
   });
-
-  useEffect(() => {
-    setSummary(null);
-    setSummaryErrorMessage(undefined);
-  }, [ticketId]);
 
   if (isError) {
     console.error("工单详情加载失败:", error);
@@ -208,6 +210,9 @@ export function TicketDetailPage() {
   const currentCategoryValue = data?.category ?? uncategorizedValue;
   const selectedStatus = statusDraft ?? getEditableTicketStatus(currentStatus);
   const selectedCategory = categoryDraft ?? currentCategoryValue;
+  const summary = summaryState.ticketId === ticketId ? summaryState.result : null;
+  const summaryErrorMessage =
+    summaryState.ticketId === ticketId ? summaryState.errorMessage : undefined;
   return (
     <section className="mx-auto grid max-w-5xl gap-4 px-2">
       <div>

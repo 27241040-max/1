@@ -6,6 +6,9 @@ import { BrowserRouter } from "react-router";
 import App from "./App.tsx";
 import "./index.css";
 import { queryClient } from "./lib/query-client";
+import { initializeSentry } from "./lib/sentry";
+
+initializeSentry();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

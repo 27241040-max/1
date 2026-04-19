@@ -113,7 +113,9 @@ export function TicketsPage() {
       return response.data;
     },
     refetchInterval: (query) =>
-      query.state.data?.tickets.some(shouldPollForTicketAutomation) ? 3_000 : false,
+      query.state.data?.tickets.some(shouldPollForTicketAutomation)
+        ? 3_000
+        : false,
   });
 
   if (isError) {
@@ -122,7 +124,9 @@ export function TicketsPage() {
 
   const tickets = data?.tickets ?? [];
   const meta = data?.meta ?? { page, pageSize, total: 0, totalPages: 1 };
-  const hasActiveFilters = Boolean(filters.category || filters.status || filters.q?.trim());
+  const hasActiveFilters = Boolean(
+    filters.category || filters.status || filters.q?.trim(),
+  );
   const handleSortingChange = (sortBy: TicketSortField) => {
     setPage(1);
     setSorting((current) => {
@@ -171,9 +175,12 @@ export function TicketsPage() {
         <div className="grid gap-4">
           <div className="grid gap-4 pb-4">
             <div className="flex flex-col gap-1">
-              <h3 className="text-lg font-semibold tracking-tight text-foreground">工单列表</h3>
+              <h3 className="text-lg font-semibold tracking-tight text-foreground">
+                工单列表
+              </h3>
               <p className="text-sm text-muted-foreground">
-                当前共 {meta.total} 个工单，第 {meta.page} / {meta.totalPages} 页
+                当前共 {meta.total} 个工单，第 {meta.page} / {meta.totalPages}{" "}
+                页
               </p>
             </div>
 
@@ -186,7 +193,9 @@ export function TicketsPage() {
                   <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="h-10 rounded-xl border-border/80 bg-background pl-9 shadow-sm"
-                    onChange={(event) => handleKeywordChange(event.target.value)}
+                    onChange={(event) =>
+                      handleKeywordChange(event.target.value)
+                    }
                     placeholder="搜索主题、客户名或邮箱"
                     type="search"
                     value={filters.q ?? ""}
@@ -222,7 +231,9 @@ export function TicketsPage() {
                   <option value="all">全部分类</option>
                   <option value={TicketCategory.general}>General</option>
                   <option value={TicketCategory.technical}>Technical</option>
-                  <option value={TicketCategory.refundRequest}>Refund Request</option>
+                  <option value={TicketCategory.refundRequest}>
+                    Refund Request
+                  </option>
                 </select>
               </label>
 
@@ -261,7 +272,8 @@ export function TicketsPage() {
               <div className="flex flex-col gap-3 border-t border-border/70 pt-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
                 <p>
                   显示第 {(meta.page - 1) * meta.pageSize + 1} -{" "}
-                  {Math.min(meta.page * meta.pageSize, meta.total)} 条，共 {meta.total} 条
+                  {Math.min(meta.page * meta.pageSize, meta.total)} 条，共{" "}
+                  {meta.total} 条
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -274,7 +286,9 @@ export function TicketsPage() {
                   </Button>
                   <Button
                     disabled={meta.page <= 1 || isFetching}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    onClick={() =>
+                      setPage((current) => Math.max(1, current - 1))
+                    }
                     type="button"
                     variant="outline"
                   >
