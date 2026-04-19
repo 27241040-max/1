@@ -208,4 +208,35 @@ describe("inboundEmailRouter", () => {
       },
     });
   });
+
+  test("falls back to a default subject when SendGrid posts an empty subject", async () => {
+    const response = await postSendgridInboundEmail({
+      from: "Customer Example <customer@example.com>",
+      headers: "Message-ID: <message-3@example.com>\r\nX-Test: 1",
+      subject: "",
+      text: "Please help from multipart",
+    });
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      created: true,
+      ticketId: 11,
+    });
+    expect(prismaMock.ticket.create).toHaveBeenCalledWith({
+      data: {
+        assignedUserId: "ai-agent-id",
+        bodyText: "Please help from multipart",
+        category: undefined,
+        customerId: 5,
+        externalMessageId: "<message-3@example.com>",
+        source: "email",
+        status: "new",
+        subject: "（无主题）",
+      },
+      select: {
+        category: true,
+        id: true,
+      },
+    });
+  });
 });

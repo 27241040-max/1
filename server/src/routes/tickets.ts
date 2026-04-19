@@ -13,6 +13,10 @@ import { Prisma, TicketStatus as PrismaTicketStatus } from "../generated/prisma"
 import { polishTicketReply } from "../lib/ai/polish-ticket-reply";
 import { summarizeTicketThread } from "../lib/ai/summarize-ticket-thread";
 import { parsePositiveIntParam } from "../lib/route-params";
+import {
+  getTicketEmailDeliveryErrorMessage,
+} from "../lib/sendgrid";
+import { sendTicketReplyEmail } from "../lib/ticket-email";
 import { getResolvedAtForStatusTransition } from "../lib/ticket-status";
 import { getTicketDashboardStats } from "../lib/ticket-stats";
 import { getIssueMessage } from "../lib/validation";
@@ -348,11 +352,33 @@ ticketsRouter.post("/:id/replies", async (req, res) => {
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    select: { id: true },
+    select: {
+      id: true,
+      externalMessageId: true,
+      subject: true,
+      customer: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
   });
 
   if (!ticket) {
     res.status(404).json({ error: "工单不存在。" });
+    return;
+  }
+
+  try {
+    await sendTicketReplyEmail({
+      bodyText: result.data.bodyText,
+      customer: ticket.customer,
+      externalMessageId: ticket.externalMessageId,
+      subject: ticket.subject,
+    });
+  } catch (error) {
+    res.status(500).json({ error: getTicketEmailDeliveryErrorMessage(error) });
     return;
   }
 

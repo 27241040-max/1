@@ -30,6 +30,8 @@ type SendgridInboundPayload = {
   text?: string;
 };
 
+const fallbackInboundSubject = "（无主题）";
+
 function parseSendgridMultipart(req: Request, res: Response, next: NextFunction) {
   const contentType = req.headers["content-type"] ?? "";
 
@@ -98,6 +100,11 @@ function extractMessageId(headers: string | undefined) {
   return match?.[1]?.trim();
 }
 
+function normalizeInboundSubject(subject: string | undefined) {
+  const normalizedSubject = subject?.trim();
+  return normalizedSubject ? normalizedSubject : fallbackInboundSubject;
+}
+
 function normalizeSendgridPayload(payload: SendgridInboundPayload): InboundEmailInput {
   const from = payload.from ? parseInboundFromAddress(payload.from) : undefined;
 
@@ -115,7 +122,7 @@ function normalizeSendgridPayload(payload: SendgridInboundPayload): InboundEmail
       name: "",
     },
     messageId: extractMessageId(payload.headers),
-    subject: payload.subject?.trim() ?? "",
+    subject: normalizeInboundSubject(payload.subject),
     text: payload.text?.trim() || (payload.html ? normalizeHtmlToText(payload.html) : ""),
   };
 }
@@ -147,6 +154,19 @@ function getInboundRequestPayload(req: Request): unknown {
     );
 
     return normalizeSendgridPayload(parser.keyValues() as SendgridInboundPayload);
+  }
+
+  if (
+    req.body &&
+    typeof req.body === "object" &&
+    !Array.isArray(req.body) &&
+    "subject" in req.body &&
+    typeof req.body.subject === "string"
+  ) {
+    return {
+      ...req.body,
+      subject: normalizeInboundSubject(req.body.subject),
+    };
   }
 
   return req.body ?? {};

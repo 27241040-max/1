@@ -5,6 +5,7 @@ const {
   readKnowledgeBaseMarkdownMock,
   resolveTicketWithKnowledgeBaseMock,
   getAiAgentUserOrThrowMock,
+  sendTicketReplyEmailMock,
 } = vi.hoisted(() => {
   const tx = {
     ticket: {
@@ -28,6 +29,7 @@ const {
     readKnowledgeBaseMarkdownMock: vi.fn(),
     resolveTicketWithKnowledgeBaseMock: vi.fn(),
     getAiAgentUserOrThrowMock: vi.fn(),
+    sendTicketReplyEmailMock: vi.fn(),
   };
 });
 
@@ -44,6 +46,10 @@ vi.mock("../ai-agent", () => ({
   getAiAgentUserOrThrow: getAiAgentUserOrThrowMock,
 }));
 
+vi.mock("../ticket-email", () => ({
+  sendTicketReplyEmail: sendTicketReplyEmailMock,
+}));
+
 import { TicketReplySource, TicketStatus } from "../../generated/prisma";
 import { processTicketAutoReply } from "./process-ticket-auto-reply";
 
@@ -56,6 +62,7 @@ const processingTicket = {
     id: 1,
     name: "Customer",
   },
+  externalMessageId: "<ticket-7@example.com>",
   id: 7,
   status: TicketStatus.processing,
   subject: "Invoice download question",
@@ -74,6 +81,7 @@ describe("processTicketAutoReply", () => {
     prismaMock.__tx.ticket.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.__tx.ticketReply.findFirst.mockResolvedValue(null);
     prismaMock.__tx.ticketReply.create.mockResolvedValue({ id: 1 });
+    sendTicketReplyEmailMock.mockResolvedValue(undefined);
   });
 
   test("resolves a ticket when the knowledge base can answer it", async () => {
@@ -96,6 +104,12 @@ describe("processTicketAutoReply", () => {
       },
     });
     expect(resolveTicketWithKnowledgeBaseMock).toHaveBeenCalledWith(processingTicket, "# kb");
+    expect(sendTicketReplyEmailMock).toHaveBeenCalledWith({
+      bodyText: "请登录账户后前往订单详情页面下载发票。",
+      customer: processingTicket.customer,
+      externalMessageId: "<ticket-7@example.com>",
+      subject: "Invoice download question",
+    });
     expect(prismaMock.__tx.ticket.updateMany).toHaveBeenCalledWith({
       where: {
         id: 7,
@@ -151,6 +165,7 @@ describe("processTicketAutoReply", () => {
       },
     });
     expect(prismaMock.__tx.ticketReply.create).not.toHaveBeenCalled();
+    expect(sendTicketReplyEmailMock).not.toHaveBeenCalled();
   });
 
   test("falls back to open when knowledge base auto reply fails", async () => {
@@ -170,6 +185,7 @@ describe("processTicketAutoReply", () => {
       },
     });
     expect(prismaMock.__tx.ticketReply.create).not.toHaveBeenCalled();
+    expect(sendTicketReplyEmailMock).not.toHaveBeenCalled();
   });
 
   test("keeps a manual assignee when the ticket cannot be auto-resolved", async () => {
@@ -198,6 +214,7 @@ describe("processTicketAutoReply", () => {
         status: TicketStatus.open,
       },
     });
+    expect(sendTicketReplyEmailMock).not.toHaveBeenCalled();
   });
 
   test("skips processing when the ticket is no longer new", async () => {
@@ -207,5 +224,30 @@ describe("processTicketAutoReply", () => {
 
     expect(prismaMock.ticket.findUnique).not.toHaveBeenCalled();
     expect(resolveTicketWithKnowledgeBaseMock).not.toHaveBeenCalled();
+  });
+
+  test("falls back to open when outbound delivery fails", async () => {
+    readKnowledgeBaseMarkdownMock.mockResolvedValue("# kb");
+    resolveTicketWithKnowledgeBaseMock.mockResolvedValue({
+      category: "general",
+      replyBodyText: "请登录账户后前往订单详情页面下载发票。",
+      shouldResolve: true,
+    });
+    sendTicketReplyEmailMock.mockRejectedValueOnce(new Error("send failed"));
+
+    await processTicketAutoReply(7);
+
+    expect(prismaMock.__tx.ticket.updateMany).toHaveBeenCalledWith({
+      where: {
+        assignedUserId: "ai-agent-id",
+        id: 7,
+        status: TicketStatus.processing,
+      },
+      data: {
+        assignedUserId: null,
+        status: TicketStatus.open,
+      },
+    });
+    expect(prismaMock.__tx.ticketReply.create).not.toHaveBeenCalled();
   });
 });

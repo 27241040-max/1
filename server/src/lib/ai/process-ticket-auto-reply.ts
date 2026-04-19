@@ -1,6 +1,7 @@
 import { TicketCategory, TicketReplySource, TicketStatus } from "../../generated/prisma";
 import { prisma } from "../../prisma";
 import { getAiAgentUserOrThrow } from "../ai-agent";
+import { sendTicketReplyEmail } from "../ticket-email";
 import { readKnowledgeBaseMarkdown, resolveTicketWithKnowledgeBase } from "./resolve-ticket-with-knowledge-base";
 
 type TicketAutoReplyCandidate = {
@@ -12,6 +13,7 @@ type TicketAutoReplyCandidate = {
     id: number;
     name: string;
   };
+  externalMessageId: string | null;
   id: number;
   status: TicketStatus;
   subject: string;
@@ -30,6 +32,7 @@ async function getTicketAutoReplyCandidate(ticketId: number): Promise<TicketAuto
       bodyText: true,
       category: true,
       status: true,
+      externalMessageId: true,
       customer: {
         select: {
           id: true,
@@ -166,6 +169,12 @@ export async function processTicketAutoReply(ticketId: number): Promise<void> {
     const result = await resolveTicketWithKnowledgeBase(ticket, knowledgeBaseMarkdown);
 
     if (result.shouldResolve && result.replyBodyText) {
+      await sendTicketReplyEmail({
+        bodyText: result.replyBodyText,
+        customer: ticket.customer,
+        externalMessageId: ticket.externalMessageId,
+        subject: ticket.subject,
+      });
       await finalizeTicketAsResolved(ticketId, result.category, result.replyBodyText);
       return;
     }
