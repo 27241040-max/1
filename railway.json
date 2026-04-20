@@ -2,7 +2,7 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "npm ci && npm run build --workspace core && npm run build --workspace client && npm run build --workspace server"
+    "buildCommand": "npm run build --workspace core && npm run build --workspace client && npm run build --workspace server"
   },
   "deploy": {
     "preDeployCommand": [
