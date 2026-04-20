@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ai-ticket-db
+    environment:
+      POSTGRES_DB: helpdesk
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: helpdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helpdesk -d helpdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: ai-ticket-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      CLIENT_ORIGIN: http://localhost:4000
+      DATABASE_URL: postgresql://helpdesk:helpdesk@db:5432/helpdesk?schema=public
+      BETTER_AUTH_URL: http://localhost:4000
+      BETTER_AUTH_SECRET: local-development-secret-change-me-123456
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: qwerdf66
+      ADMIN_NAME: Administrator
+      AI_SDK_LOG_WARNINGS: "false"
+      SENTRY_DSN: ""
+      SENTRY_ENVIRONMENT: docker-local
+      SENTRY_RELEASE: ""
+      SENTRY_TRACES_SAMPLE_RATE: "0"
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  postgres-data:

@@ -2,6 +2,8 @@ import "dotenv/config";
 import "./instrument";
 
 import type { ErrorRequestHandler } from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import * as Sentry from "@sentry/node";
 import express from 'express';
 import cors from 'cors';
@@ -20,6 +22,8 @@ import { usersRouter } from "./routes/users";
 
 const app = express();
 const port = process.env.PORT || 4000;
+const clientDistPath = path.resolve(__dirname, "../../client/dist");
+const clientIndexPath = path.join(clientDistPath, "index.html");
 
 app.use(
   cors({
@@ -50,6 +54,19 @@ app.use("/api/inbound/email", inboundEmailRouter);
 app.use("/api/webhooks/inbound-email", inboundEmailRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/users", usersRouter);
+
+if (existsSync(clientIndexPath)) {
+  app.use(express.static(clientDistPath));
+
+  app.get("/{*splat}", (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      next();
+      return;
+    }
+
+    res.sendFile(clientIndexPath);
+  });
+}
 
 Sentry.setupExpressErrorHandler(app);
 

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "start:prod": "node ./scripts/start-prod.mjs",
     "test": "vitest run",
     "test:components": "vitest run",
     "preview": "vite preview"
@@ -29,6 +30,7 @@
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.72.1",
     "react-router": "^7.14.0",
+    "serve": "^14.2.5",
     "shadcn": "^4.2.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",

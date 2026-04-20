@@ -8,8 +8,12 @@
     "core"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces",
-    "typecheck": "npm run build --workspace client && npx tsc -p server/tsconfig.json --noEmit && npx tsc -p tsconfig.playwright.json --noEmit",
+    "docker:build": "docker compose build",
+    "docker:down": "docker compose down",
+    "docker:up": "docker compose up --build",
+    "postinstall": "npm run build --workspace core",
+    "dev": "npm run build --workspace core && npm run dev --workspaces",
+    "typecheck": "npm run build --workspace core && npm run build --workspace client && npx tsc -p server/tsconfig.json --noEmit && npx tsc -p tsconfig.playwright.json --noEmit",
     "playwright:install": "playwright install",
     "playwright:test": "playwright test",
     "playwright:test:ui": "playwright test --ui",

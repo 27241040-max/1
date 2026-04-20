@@ -6,10 +6,7 @@ function getDefaultApiBaseUrl(): string {
     return `http://${DEFAULT_API_HOST}:${DEFAULT_API_PORT}`;
   }
 
-  const protocol = window.location.protocol || "http:";
-  const hostname = window.location.hostname || DEFAULT_API_HOST;
-
-  return `${protocol}//${hostname}:${DEFAULT_API_PORT}`;
+  return window.location.origin || `http://${DEFAULT_API_HOST}:${DEFAULT_API_PORT}`;
 }
 
 export const apiBaseUrl = (

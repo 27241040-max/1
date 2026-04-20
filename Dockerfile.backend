@@ -1,0 +1,18 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY . .
+
+RUN npm ci && \
+    npm run build --workspace core && \
+    npm run build --workspace client && \
+    npm run build --workspace server && \
+    mkdir -p server/dist/generated && \
+    cp -R server/src/generated/prisma server/dist/generated/prisma
+
+ENV NODE_ENV=production
+
+EXPOSE 4000
+
+CMD ["sh", "-c", "npm run prisma:migrate:deploy --workspace server && npm run prisma:seed --workspace server && npm run start --workspace server"]
