@@ -1,12 +1,38 @@
 # Railway 部署说明
 
-这个仓库建议在 Railway 中拆成 3 个资源：
+这个仓库有两种 Railway 部署方式：
 
-- `Frontend`
-- `Backend`
-- `Postgres`
+- 推荐的拆分部署：`Frontend` + `Backend` + `Postgres`
+- 更省事的单服务部署：`Web` + `Postgres`
 
-两个应用服务都要指向仓库根目录，不要把 Railway 的根目录改成 `client` 或 `server` 子目录。因为 `client` 和 `server` 都依赖 workspace 包 `core`，如果直接切到子目录，workspace 依赖解析会失效。
+所有服务都要指向仓库根目录，不要把 Railway 的根目录改成 `client` 或 `server` 子目录。因为 `client` 和 `server` 都依赖 workspace 包 `core`，如果直接切到子目录，workspace 依赖解析会失效。
+
+## 单服务部署
+
+仓库根目录的 `railway.json` 已经为单服务部署写好默认配置：
+
+- Build Command：`npm ci && npm run build --workspace core && npm run build --workspace client && npm run build --workspace server`
+- Pre-deploy Command：`npm run prisma:migrate:deploy --workspace server`
+- Start Command：`npm run start --workspace server`
+- Health Check：`/api/health`
+
+这个模式下，后端会直接托管 `client/dist`，因此 Railway 里只需要：
+
+- 一个 `Web` 服务，指向仓库根目录
+- 一个 `Postgres` 服务
+
+单服务模式至少需要这些环境变量：
+
+```dotenv
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+CLIENT_ORIGIN=https://${{Web.RAILWAY_PUBLIC_DOMAIN}}
+BETTER_AUTH_URL=https://${{Web.RAILWAY_PUBLIC_DOMAIN}}
+BETTER_AUTH_SECRET=<长度至少 32 位的随机密钥>
+ADMIN_EMAIL=<生产环境管理员邮箱>
+ADMIN_PASSWORD=<生产环境管理员密码>
+```
+
+可选变量与下文 `Backend 服务` 一致。
 
 ## Frontend 服务
 
