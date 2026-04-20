@@ -16,7 +16,6 @@ import { Link, useParams } from "react-router";
 
 import { FormDetails } from "@/components/tickets/FormDetails";
 import { TicketDetailSkeleton } from "@/components/tickets/TicketDetailSkeleton";
-import { shouldPollForTicketAutomation } from "@/components/tickets/ticket-display";
 import { UpdateTicket } from "@/components/tickets/UpdateTicket";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +23,7 @@ import { apiClient } from "../lib/api-client";
 
 const unassignedAgentValue = "__unassigned__";
 const uncategorizedValue = "__uncategorized__";
+const ticketDetailPollingIntervalMs = 5_000;
 
 type TicketSummaryViewState = {
   errorMessage?: string;
@@ -115,8 +115,7 @@ export function TicketDetailPage() {
       const response = await apiClient.get<TicketDetail>(`/api/tickets/${ticketId}`);
       return response.data;
     },
-    refetchInterval: (query) =>
-      query.state.data && shouldPollForTicketAutomation(query.state.data) ? 3_000 : false,
+    refetchInterval: () => ticketDetailPollingIntervalMs,
   });
 
   const { data: agentsData } = useQuery({

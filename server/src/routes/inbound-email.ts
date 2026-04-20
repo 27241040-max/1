@@ -111,6 +111,53 @@ function normalizeHtmlToText(html: string): string {
     .trim();
 }
 
+function cleanInboundTextBody(text: string) {
+  const normalizedText = text.replace(/\r/g, "").trim();
+
+  if (!normalizedText) {
+    return normalizedText;
+  }
+
+  const lines = normalizedText.split("\n");
+  const cleanedLines: string[] = [];
+  let hasCapturedReplyContent = false;
+
+  const isQuoteBoundaryLine = (line: string) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      return false;
+    }
+
+    return [
+      /^On .+wrote:\s*$/i,
+      /^.+写道[:：]\s*$/i,
+      /^-+\s*Original Message\s*-+\s*$/i,
+      /^From:\s.+$/i,
+      /^>+/,
+    ].some((pattern) => pattern.test(trimmed));
+  };
+
+  for (const line of lines) {
+    if (hasCapturedReplyContent && isQuoteBoundaryLine(line)) {
+      break;
+    }
+
+    cleanedLines.push(line);
+
+    if (line.trim()) {
+      hasCapturedReplyContent = true;
+    }
+  }
+
+  const collapsed = cleanedLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return collapsed || normalizedText;
+}
+
 function parseInboundFromAddress(from: string) {
   const trimmed = from.trim();
   const match = trimmed.match(/^(?:"?([^"]*?)"?\s*)?<([^<>]+)>$/);
@@ -241,6 +288,7 @@ inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
   }
 
   const messageId = result.data.messageId?.trim();
+  const cleanedBodyText = cleanInboundTextBody(result.data.text);
   const threadMessageIds =
     inboundRequestPayload &&
     typeof inboundRequestPayload === "object" &&
@@ -312,7 +360,7 @@ inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
           replies: {
             create: {
               authorLabel: customer.name,
-              bodyText: result.data.text,
+              bodyText: cleanedBodyText,
               source: "agent",
             },
           },
@@ -338,7 +386,7 @@ inboundEmailRouter.post("/", parseSendgridMultipart, async (req, res) => {
   const ticket = await prisma.ticket.create({
     data: {
       assignedUserId: aiAgent.id,
-      bodyText: result.data.text,
+      bodyText: cleanedBodyText,
       category: normalizeCategory(result.data.category),
       customerId: customer.id,
       externalMessageId: messageId,

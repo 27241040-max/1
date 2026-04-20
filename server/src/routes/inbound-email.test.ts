@@ -301,4 +301,95 @@ describe("inboundEmailRouter", () => {
     });
     expect(prismaMock.ticket.create).not.toHaveBeenCalled();
   });
+
+  test("stores only the newest customer reply text when quoted history is included", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue({
+      id: 42,
+      status: "open",
+    });
+
+    const response = await postSendgridInboundEmail({
+      from: "Customer Example <customer@example.com>",
+      headers: [
+        "Message-ID: <message-5@example.com>",
+        "In-Reply-To: <agent-reply@example.com>",
+        "References: <root-message@example.com> <agent-reply@example.com>",
+      ].join("\r\n"),
+      subject: "Re: Need help from SendGrid",
+      text: [
+        "测试2",
+        "",
+        "Code with MasterHong Support <support@example.com> 于2026年4月20日周一 21:16写道：",
+        "",
+        "> 你好",
+        "> 历史内容",
+      ].join("\n"),
+    });
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.ticket.update).toHaveBeenCalledWith({
+      where: {
+        id: 42,
+      },
+      data: {
+        replies: {
+          create: {
+            authorLabel: "Customer",
+            bodyText: "测试2",
+            source: "agent",
+          },
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
+
+  test("strips quoted history when the reply contains a localized wrote line followed by quote markers", async () => {
+    prismaMock.ticket.findFirst.mockResolvedValue({
+      id: 42,
+      status: "open",
+    });
+
+    const response = await postSendgridInboundEmail({
+      from: "Koray Arzum <customer@example.com>",
+      headers: [
+        "Message-ID: <message-6@example.com>",
+        "In-Reply-To: <agent-reply@example.com>",
+        "References: <root-message@example.com> <agent-reply@example.com>",
+      ].join("\r\n"),
+      subject: "Re: Need help from SendGrid",
+      text: [
+        "1",
+        "",
+        "Koray Arzum <arzkoray@gmail.com> 于2026年4月20日周一 21:26写道：",
+        "",
+        "> test",
+        ">",
+        "> Code with MasterHong Support <support@nwanmq.com> 于2026年4月20日周一 21:26写道：",
+        ">",
+        ">> Code with MasterHong Support",
+      ].join("\n"),
+    });
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.ticket.update).toHaveBeenCalledWith({
+      where: {
+        id: 42,
+      },
+      data: {
+        replies: {
+          create: {
+            authorLabel: "Customer",
+            bodyText: "1",
+            source: "agent",
+          },
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+  });
 });
