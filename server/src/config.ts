@@ -99,3 +99,23 @@ export function getAppBaseUrl(): string {
 
   return appBaseUrl;
 }
+
+export function getTrustedOriginsForRequest(request?: Request): string[] {
+  const requestOrigin = normalizePublicUrl(request?.headers.get("origin") ?? undefined);
+  const forwardedHost = request?.headers.get("x-forwarded-host")?.trim();
+  const forwardedProto = request?.headers.get("x-forwarded-proto")?.trim() || "https";
+  const forwardedOrigin = forwardedHost
+    ? normalizePublicUrl(`${forwardedProto}://${forwardedHost}`)
+    : undefined;
+  const host = request?.headers.get("host")?.trim();
+  const hostOrigin = host ? normalizePublicUrl(`${forwardedProto}://${host}`) : undefined;
+
+  return Array.from(
+    new Set([
+      ...trustedOrigins,
+      requestOrigin,
+      forwardedOrigin,
+      hostOrigin,
+    ].filter((origin): origin is string => Boolean(origin))),
+  );
+}
