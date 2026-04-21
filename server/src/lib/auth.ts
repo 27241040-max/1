@@ -5,7 +5,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 
-import { getRequiredEnv, trustedOrigins } from "../config";
+import { getAppBaseUrl, getRequiredEnv, trustedOrigins } from "../config";
 import { UserRole } from "../generated/prisma";
 import { prisma } from "../prisma";
 
@@ -13,7 +13,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 export const auth = betterAuth({
   secret: getRequiredEnv("BETTER_AUTH_SECRET"),
-  baseURL: getRequiredEnv("BETTER_AUTH_URL"),
+  baseURL: getAppBaseUrl(),
   basePath: "/api/auth",
   trustedOrigins,
   disabledPaths: ["/sign-up/email"],

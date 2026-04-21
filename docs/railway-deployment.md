@@ -25,12 +25,12 @@
 
 ```dotenv
 DATABASE_URL=${{Postgres.DATABASE_URL}}
-CLIENT_ORIGIN=https://${{Web.RAILWAY_PUBLIC_DOMAIN}}
-BETTER_AUTH_URL=https://${{Web.RAILWAY_PUBLIC_DOMAIN}}
 BETTER_AUTH_SECRET=<长度至少 32 位的随机密钥>
 ADMIN_EMAIL=<生产环境管理员邮箱>
 ADMIN_PASSWORD=<生产环境管理员密码>
 ```
+
+`BETTER_AUTH_URL` 和 `CLIENT_ORIGIN` 在 Railway 单服务部署时可以不填，后端会优先读取 `BETTER_AUTH_URL`，缺失时自动使用 Railway 注入的 `RAILWAY_PUBLIC_DOMAIN`。
 
 可选变量与下文 `Backend 服务` 一致。
 

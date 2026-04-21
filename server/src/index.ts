@@ -17,19 +17,29 @@ const clientIndexPath = path.join(clientDistPath, "index.html");
 let appStatus: "initializing" | "ready" | "degraded" = "initializing";
 let stopBossRef: (() => Promise<void>) | undefined;
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (isAllowedOrigin(origin)) {
-        callback(null, true);
-        return;
-      }
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+  Sentry.captureException(reason);
+});
 
-      callback(new Error(`Origin ${origin ?? 'unknown'} is not allowed by CORS`));
-    },
-    credentials: true,
-  }),
-);
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error);
+  Sentry.captureException(error);
+});
+
+const apiCors = cors({
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin ${origin ?? 'unknown'} is not allowed by CORS`));
+  },
+  credentials: true,
+});
+
+app.use("/api", apiCors);
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {

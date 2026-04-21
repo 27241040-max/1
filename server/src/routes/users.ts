@@ -6,7 +6,7 @@ import { fromNodeHeaders } from "better-auth/node";
 import { Router } from "express";
 
 import { auth } from "../auth";
-import { getRequiredEnv } from "../config";
+import { getAppBaseUrl } from "../config";
 import { UserRole } from "../generated/prisma";
 import { getIssueMessage } from "../lib/validation";
 import { requireAdmin } from "../middleware/require-admin";
@@ -14,7 +14,7 @@ import { requireAuth } from "../middleware/require-auth";
 import { prisma } from "../prisma";
 
 export const usersRouter = Router();
-const betterAuthBaseUrl = getRequiredEnv("BETTER_AUTH_URL").replace(/\/$/, "");
+const betterAuthBaseUrl = getAppBaseUrl();
 
 usersRouter.use(requireAuth, requireAdmin);
 
